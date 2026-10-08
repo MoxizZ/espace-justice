@@ -848,6 +848,7 @@ function names(d,long){var l=asg(d);return l.length?l.map(function(i){return lon
 function isStar(d){return (d.etoile||[]).indexOf(ME.id)>=0}
 function starFirst(l){return l.map(function(d,i){return [d,i]}).sort(function(a,b){return (isStar(b[0])?1:0)-(isStar(a[0])?1:0)||a[1]-b[1]}).map(function(x){return x[0]})}
 function ficheHref(d){return '#individu-'+encodeURIComponent(indivKey(d))}
+function maskEmail(e){e=String(e||'');var i=e.lastIndexOf('@');if(i<1)return '••••••';var l=e.slice(0,i),d=e.slice(i+1),p=d.lastIndexOf('.');var dn=p>0?d.slice(0,p):d,tl=p>0?d.slice(p):'';return l.slice(0,2)+'****@'+dn.slice(0,1)+'***'+tl}
 function approved(){return MEMBERS.filter(function(m){return m.approved})}
 var FREG=[];
 function fileLinks(fs){
@@ -1408,7 +1409,7 @@ async function viewAdmin(){
   return '<div class="wrap page">'+pageHead('Administration','Validez les nouveaux comptes et attribuez les grades. '+(isSuper()?'Vous êtes super-administrateur : vous seul changez les rôles et supprimez des comptes. ':'Les rôles et les suppressions de comptes sont réservés au super-administrateur. ')+(pend?'<b>'+pend+' compte'+(pend>1?'s':'')+' en attente.</b>':'Aucun compte en attente.'))+
   '<div class="mlist">'+ms.map(function(m){
     var locked=m.role==='super'&&m.id!==ME.id,dis=locked?' disabled':'';
-    return '<div class="mrow'+(m.approved?'':' pend-row')+'" data-id="'+qa(m.id)+'"><div class="mtop"><input data-f="nom" class="nomin"'+dis+' value="'+qa(m.nom||'')+'" aria-label="Nom RP" required><span class="mem">'+esc(m.email||'')+'</span>'+(m.role==='super'?'<span class="badge-super">Super-admin</span>':'')+(m.approved?'':'<span class="badge">En attente</span>')+'</div>'+
+    return '<div class="mrow'+(m.approved?'':' pend-row')+'" data-id="'+qa(m.id)+'"><div class="mtop"><input data-f="nom" class="nomin"'+dis+' value="'+qa(m.nom||'')+'" aria-label="Nom RP" required><span class="mem" title="Adresse masquée par sécurité">'+esc(maskEmail(m.email))+'</span>'+(m.role==='super'?'<span class="badge-super">Super-admin</span>':'')+(m.approved?'':'<span class="badge">En attente</span>')+'</div>'+
     '<div class="mgrid"><label>Grade<select data-f="grade"'+dis+'>'+opts(GRADES,m.grade)+'</select></label><label>Service<select data-f="service"'+dis+'>'+opts(SERVICES,m.service)+'</select></label><label>Fonction<input data-f="fonction"'+dis+' value="'+qa(m.fonction||'')+'" placeholder="ex. Permanence"></label>'+
     (m.role==='super'?'':'<label>Rôle<select data-f="role"'+(isSuper()?'':' disabled title="Seul le super-administrateur change les rôles"')+'>'+opts(['membre','admin'],m.role)+'</select></label>')+
     '<label class="mact"><input type="checkbox" data-f="approved"'+(m.approved?' checked':'')+((m.id===ME.id||m.role==='super')?' disabled':'')+' aria-label="Compte actif"> Compte actif</label></div>'+
