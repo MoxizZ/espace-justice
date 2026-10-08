@@ -409,12 +409,39 @@ var $=function(s,r){return (r||document).querySelector(s)};
 
 /* ===== Droits d'accès aux dossiers et au répertoire (mêmes règles que setup.sql) ===== */
 function asgIds(d){return (d.assignes&&d.assignes.length)?d.assignes:(d.assigne_a?[d.assigne_a]:[])}
-function canSeeD(d){return !!ME&&(isAdm()||d.created_by===ME.id||asgIds(d).indexOf(ME.id)>=0||(d.acces==='service'&&!!d.service_acces&&d.service_acces===ME.service))}
-var REG_SERVICES=['Parquet du Roi','Siège','Instruction','Greffe'];
-function canRegistry(){return !!ME&&(isAdm()||REG_SERVICES.indexOf(ME.service)>=0)}
+function canSeeD(d){return !!ME&&(isAdm()||d.created_by===ME.id||asgIds(d).indexOf(ME.id)>=0)}
 var MAGIS=['Procureur du Roi','Substitut du Procureur','Juge en chef','Juge','Juge d’instruction'];
-var ECH_TYPES=['Audience','Délai d’appel','Délai de pourvoi','Fin de peine','Rappel','Autre'];
-var MESURE_TYPES=['Condamnation','Peine à exécuter','Contrôle judiciaire','Détention préventive','Mandat d’arrêt','Interdiction','Autre'];
+var ECH_TYPES=['Audience','Fin de peine','Rappel','Autre'];
+/* Délais calculés automatiquement d'après les Codes (Code V, Art. 76 : un délai en jours expire le dernier jour à 23 h 59) */
+var DELAIS=[
+ {k:'appel',l:'Appel',n:15,u:'j',dep:'Prononcé du jugement',ref:'Code V, Art. 31 et 76'},
+ {k:'pourvoi',l:'Pourvoi en cassation',n:15,u:'j',dep:'Prononcé de l’arrêt',ref:'Code V, Art. 39 et 76'},
+ {k:'opposition',l:'Opposition (jugement par défaut)',n:7,u:'j',dep:'Notification du jugement',ref:'Code V, Art. 15 et 76'},
+ {k:'amende',l:'Contestation d’une amende forfaitaire',n:7,u:'j',dep:'Remise de l’amende',ref:'Code V, Art. 60 ; Code III, Art. 38'},
+ {k:'paiement',l:'Paiement de l’amende confirmée',n:7,u:'j',dep:'Décision confirmant l’amende',ref:'Code V, Art. 60 al. 4'},
+ {k:'admin',l:'Recours contre une décision administrative',n:15,u:'j',dep:'Notification de la décision',ref:'Code V, Art. 62 ; Code I, Art. 19'},
+ {k:'p7',l:'Prescription de l’action publique : contravention',n:7,u:'j',dep:'Date des faits',ref:'Code III, Art. 39',nb:'Tout acte d’enquête, d’instruction ou de poursuite interrompt la prescription et fait courir un nouveau délai complet.'},
+ {k:'p14',l:'Prescription de l’action publique : délit mineur',n:14,u:'j',dep:'Date des faits',ref:'Code III, Art. 39',nb:'Tout acte d’enquête, d’instruction ou de poursuite interrompt la prescription et fait courir un nouveau délai complet.'},
+ {k:'p30',l:'Prescription de l’action publique : délit majeur',n:30,u:'j',dep:'Date des faits',ref:'Code III, Art. 39',nb:'Tout acte d’enquête, d’instruction ou de poursuite interrompt la prescription et fait courir un nouveau délai complet.'},
+ {k:'p60',l:'Prescription de l’action publique : crime',n:60,u:'j',dep:'Date des faits',ref:'Code III, Art. 39',nb:'Meurtre, assassinat, terrorisme et haute trahison sont imprescriptibles. Tout acte interrompt la prescription.'},
+ {k:'j24',l:'Présentation au juge d’instruction (arrestation sur mandat)',n:24,u:'h',dep:'Heure de l’arrestation',ref:'Code III, Art. 24'},
+ {k:'r48',l:'Restitution des biens saisis',n:48,u:'h',dep:'Classement sans suite, non-lieu, acquittement ou nullité',ref:'Code V, Art. 65 al. 3'},
+ {k:'d72',l:'Décision de la Cour d’Appel sur la détention',n:72,u:'h',dep:'Contestation du refus de mise en liberté',ref:'Code V, Art. 61'},
+ {k:'s72',l:'Décision sur la contestation d’une saisie ou d’une fourrière',n:72,u:'h',dep:'Demande de l’intéressé',ref:'Code V, Art. 65'},
+ {k:'q7',l:'Décision sur une question constitutionnelle',n:7,u:'j',dep:'Saisine',ref:'Code V, Art. 8'},
+ {k:'cit',l:'Remise de la citation (au moins 3 jours avant l’audience)',n:72,u:'-h',dep:'Date et heure de l’audience',ref:'Code V, Art. 14 al. 3'}
+];
+function calcDelai(dl,start){
+  if(dl.u==='j')return new Date(start.getFullYear(),start.getMonth(),start.getDate()+dl.n,23,59,0);
+  if(dl.u==='h')return new Date(start.getTime()+dl.n*36e5);
+  return new Date(start.getTime()-dl.n*36e5);
+}
+function dlLabel(dl){return dl.u==='j'?dl.n+' jours':dl.u==='h'?dl.n+' heures':'3 jours avant'}
+function reste(iso){
+  var ms=new Date(iso).getTime()-Date.now(),a=Math.abs(ms),h=a/36e5,d=Math.floor(a/864e5);
+  var t=h<48?Math.max(1,Math.round(h))+' h':d+' jour'+(d>1?'s':'');
+  return ms>=0?'il reste '+t:'en retard de '+t;
+}
 var PERS_ROLES=['Prévenu','Inculpé','Victime','Partie civile','Plaignant','Témoin','Expert','Autre'];
 var TK={dossier_notes:'notes',dossier_log:'log',dossiers:'dossiers',messages:'messages',profiles:'users'};
 /* Listes d'étapes tirées des guides pratiques (le Code applicable prévaut toujours) */
@@ -630,18 +657,14 @@ if(!LIVE){
     var av=u('Avocat (démo)','Avocat','Barreau','');
     var bat=u('Bâtonnier (démo)','Bâtonnier','Barreau','Chef du Barreau');
     var pending={id:uid(),email:'nouveau@demo.local',nom:'Nouveau membre (démo)',grade:'Avocat',service:'Barreau',fonction:'',role:'membre',approved:false,created_at:nowIso()};
-    var pe1=uid();
     var d1={id:uid(),numero:'2026-0001',titre:'Exemple : vol à main armée (supérette)',statut:'Instruction',juridiction:'Juge d’instruction',parties:'Parquet du Roi c/ X (exemple)',resume:'Dossier d’exemple pour essayer l’espace. Les noms et faits sont fictifs.',assigne_a:ji.id,assignes:[ji.id,proc.id],created_by:proc.id,created_at:nowIso(),updated_at:nowIso()};
     var d2={id:uid(),numero:'2026-0002',titre:'Exemple : contestation d’une amende forfaitaire',statut:'Ouvert',juridiction:'Tribunal de Police',parties:'Citoyen (exemple) c/ Police de Bruxelles',resume:'Deuxième dossier d’exemple.',assigne_a:juge.id,assignes:[juge.id,av.id],created_by:av.id,created_at:nowIso(),updated_at:nowIso()};
     return {users:[admin,adj,proc,sub,ji,juge,av,bat,pending],messages:[
       {id:uid(),channel:'general',sender:admin.id,body:'Bienvenue dans l’espace interne de la Justice. Les Codes, les guides, les documents types, la messagerie et les dossiers sont ici.',files:[],created_at:nowIso()},
       {id:uid(),channel:'parquet',sender:proc.id,body:'Rappel : toute sanction contre un agent de police doit nous être communiquée par écrit sous 48 heures (Code IV, Art. 82).',files:[],created_at:nowIso()}],
       echeances:[{id:uid(),dossier_id:d1.id,type:'Audience',date_heure:new Date(Date.now()+3*864e5).toISOString(),note:'Audience de renvoi, salle 2',done:false,created_by:proc.id,created_at:nowIso()},{id:uid(),dossier_id:d1.id,type:'Fin de peine',date_heure:new Date(Date.now()+20*36e5).toISOString(),note:'Libération à prévoir (exemple)',done:false,created_by:proc.id,created_at:nowIso()}],
-      personnes:[{id:pe1,nom:'Jean Dupont (exemple)',naissance:'12/03/1990',adresse:'Rue Neuve 5, Bruxelles',notes:'Fiche d’exemple.',created_by:proc.id,created_at:nowIso()}],
-      mesures:[{id:uid(),personne_id:pe1,type:'Contrôle judiciaire',description:'Pointage hebdomadaire au Commissariat (exemple)',dossier_id:d1.id,date_debut:'2026-10-01',date_fin:'2026-12-01',active:true,created_by:proc.id,created_at:nowIso()}],
-      dossier_personnes:[{id:uid(),dossier_id:d1.id,personne_id:pe1,nom:'Jean Dupont (exemple)',role:'Inculpé',created_at:nowIso()}],
+      dossier_personnes:[{id:uid(),dossier_id:d1.id,nom:'Jean Dupont (exemple)',role:'Inculpé',created_at:nowIso()}],
       annonces:[{id:uid(),titre:'Bienvenue sur l’espace interne',corps:'Les Codes, les guides, les documents types, la messagerie, les dossiers et l’agenda sont ici.',created_by:admin.id,created_at:nowIso()}],
-      registre_lois:[],
       dossiers:[d1,d2],notes:[{id:uid(),dossier_id:d1.id,author:proc.id,body:'Réquisitoire de saisine rédigé. Voir Code III, Art. 30.',files:[],created_at:nowIso()}]};
   }
   function load(){try{ST=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){ST=null}if(!ST||!ST.users){ST=seed();save()}}
@@ -676,18 +699,16 @@ if(!LIVE){
     async list(name,eq){
       var k=TK[name]||name;var r=(ST[k]=ST[k]||[]).slice();
       if(name==='echeances'||name==='dossier_personnes'){var vis={};ST.dossiers.forEach(function(d){if(canSeeD(d))vis[d.id]=1});r=r.filter(function(x){return vis[x.dossier_id]})}
-      if((name==='personnes'||name==='mesures')&&!canRegistry())return [];
       if(eq)r=r.filter(function(x){for(var q in eq)if(x[q]!==eq[q])return false;return true});
       return r.sort(function(x,y){return (x.created_at||'')<(y.created_at||'')?-1:1});
     },
     async ins(name,row){
       var k=TK[name]||name;ST[k]=ST[k]||[];
-      if((name==='annonces'||name==='registre_lois')&&!isAdm())throw new Error('Réservé aux administrateurs.');
-      if((name==='personnes'||name==='mesures')&&!canRegistry())throw new Error('Accès réservé au répertoire.');
+      if((name==='annonces')&&!isAdm())throw new Error('Réservé aux administrateurs.');
       var o=Object.assign({id:uid(),created_at:nowIso(),created_by:ME.id},row);ST[k].push(o);save();return o;
     },
     async upd(name,id,f){var k=TK[name]||name;var r=(ST[k]||[]).filter(function(x){return x.id===id})[0];if(!r)throw new Error('Introuvable.');Object.assign(r,f);save();return r},
-    async del(name,id){var k=TK[name]||name;if((name==='annonces'||name==='registre_lois')&&!isAdm())throw new Error('Réservé aux administrateurs.');ST[k]=(ST[k]||[]).filter(function(x){return x.id!==id});save()},
+    async del(name,id){var k=TK[name]||name;if((name==='annonces')&&!isAdm())throw new Error('Réservé aux administrateurs.');ST[k]=(ST[k]||[]).filter(function(x){return x.id!==id});save()},
     async backup(){return {exporte_le:nowIso(),exporte_par:ME.email||ME.nom,donnees:JSON.parse(JSON.stringify(ST))}},
     async reset(){localStorage.removeItem(KEY);sessionStorage.removeItem('demo_user');location.reload()}
   };
@@ -726,10 +747,10 @@ if(!LIVE){
     async addNote(id,body,files){chk(await SB.from('dossier_notes').insert({dossier_id:id,author:ME.id,body:body,files:files||[]}));await SB.from('dossiers').update({updated_at:nowIso()}).eq('id',id)},
     /* opérations génériques sur les tables annexes */
     async list(name,eq){var q=SB.from(name).select('*');if(eq)for(var k in eq)q=q.eq(k,eq[k]);return chk(await q.order('created_at',{ascending:true}))},
-    async ins(name,row){var cr=['echeances','personnes','mesures','annonces','registre_lois'].indexOf(name)>=0;return chk(await SB.from(name).insert(cr?Object.assign({},row,{created_by:ME.id}):row).select().single())},
+    async ins(name,row){var cr=['echeances','annonces'].indexOf(name)>=0;return chk(await SB.from(name).insert(cr?Object.assign({},row,{created_by:ME.id}):row).select().single())},
     async upd(name,id,f){var r=await SB.from(name).update(f).eq('id',id).select();if(r.error)throw new Error(r.error.message);if(!r.data||!r.data.length)throw new Error('Modification refusée.');return r.data[0]},
     async del(name,id){var r=await SB.from(name).delete().eq('id',id).select();if(r.error)throw new Error(r.error.message);if(!r.data||!r.data.length)throw new Error('Suppression refusée.')},
-    async backup(){var out={exporte_le:nowIso(),exporte_par:ME.email,donnees:{}};var ts=['profiles','dossiers','dossier_notes','dossier_log','echeances','personnes','mesures','dossier_personnes','annonces','registre_lois','messages'];for(var i=0;i<ts.length;i++){var r=await SB.from(ts[i]).select('*');out.donnees[ts[i]]=r.error?{erreur:r.error.message}:r.data}return out},
+    async backup(){var out={exporte_le:nowIso(),exporte_par:ME.email,donnees:{}};var ts=['profiles','dossiers','dossier_notes','dossier_log','echeances','dossier_personnes','annonces','messages'];for(var i=0;i<ts.length;i++){var r=await SB.from(ts[i]).select('*');out.donnees[ts[i]]=r.error?{erreur:r.error.message}:r.data}return out},
     async reset(){}
   };
 }
@@ -1006,7 +1027,7 @@ function dossierForm(d){
   return '<form id="df" class="form wide"><div class="two"><label>Numéro<input id="f_num" value="'+qa(d.numero||(new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000)))+'" required></label><label>État<select id="f_st">'+opts(d.statut==='Classé'?STATUTS:ACTIFS,d.statut||'Ouvert')+'</select></label></div>'+
   '<label>Titre de l’affaire<input id="f_ti" value="'+qa(d.titre||'')+'" required></label><div class="two"><label>Juridiction<select id="f_ju">'+opts(JURIDICTIONS,d.juridiction||'Parquet du Roi')+'</select></label>'+
   '<div class="lbl"><span>Chargés du dossier (5 au maximum)</span><div id="f_asl" class="pend"></div><select id="f_asadd" aria-label="Ajouter une personne au dossier"></select></div></div>'+
-  '<div class="two"><label>Qui peut voir ce dossier<select id="f_ac"><option value="charges"'+((d.acces||'charges')==='charges'?' selected':'')+'>Personnes chargées seulement (recommandé)</option><option value="service"'+(d.acces==='service'?' selected':'')+'>Personnes chargées + tout un service</option></select></label><label>Service concerné (si accès au service)<select id="f_sv"><option value="">—</option>'+opts(SERVICES,d.service_acces||'')+'</select></label></div><p class="sub small">Les administrateurs et la personne qui ouvre le dossier le voient toujours.</p>'+
+  '<p class="sub small">🔒 Seuls les administrateurs, la personne qui ouvre le dossier et les personnes chargées ci-dessus le voient.</p>'+
   '<label>Parties (qui contre qui)<input id="f_pa" value="'+qa(d.parties||'')+'"></label><label>Résumé des faits<textarea id="f_re" rows="5">'+esc(d.resume||'')+'</textarea></label>'+
   '<div class="comprow"><button class="btn" type="submit">Enregistrer</button><a class="btn ghost" href="#'+(d.id?'dossier-'+qa(d.id):'dossiers')+'">Annuler</a></div></form>';
 }
@@ -1024,7 +1045,7 @@ function bindDossierForm(id){
   drawAsg();$('#f_asadd').addEventListener('change',function(e){if(e.target.value&&FASG.length<5&&FASG.indexOf(e.target.value)<0){FASG.push(e.target.value)}drawAsg()});
   f.addEventListener('submit',async function(e){
     e.preventDefault();
-    var d={numero:$('#f_num').value.trim(),statut:$('#f_st').value,titre:$('#f_ti').value.trim(),juridiction:$('#f_ju').value,assignes:FASG.slice(),assigne_a:FASG[0]||null,acces:$('#f_ac').value,service_acces:$('#f_ac').value==='service'?$('#f_sv').value:'',parties:$('#f_pa').value.trim(),resume:$('#f_re').value.trim()};
+    var d={numero:$('#f_num').value.trim(),statut:$('#f_st').value,titre:$('#f_ti').value.trim(),juridiction:$('#f_ju').value,assignes:FASG.slice(),assigne_a:FASG[0]||null,parties:$('#f_pa').value.trim(),resume:$('#f_re').value.trim()};
     if(id)d.id=id;
     try{
       var old=id?Object.assign({},await API.dossier(id)):null;
@@ -1037,7 +1058,7 @@ function bindDossierForm(id){
   });
 }
 var EDITING=false,NPEND=[];
-var DLAB={acces:'accès',service_acces:'service ayant accès',numero:'numéro',statut:'état',titre:'titre',juridiction:'juridiction',assignes:'chargés du dossier',parties:'parties',resume:'résumé des faits'};
+var DLAB={numero:'numéro',statut:'état',titre:'titre',juridiction:'juridiction',assignes:'chargés du dossier',parties:'parties',resume:'résumé des faits'};
 function diffDossier(o,n){
   var out=[];
   Object.keys(DLAB).forEach(function(k){
@@ -1045,7 +1066,6 @@ function diffDossier(o,n){
     if(k==='assignes'){var la=asg(o),lb=n.assignes||[];if(la.slice().sort().join()!==lb.slice().sort().join())out.push('chargés du dossier : '+(la.map(who).join(', ')||'—')+' → '+(lb.map(who).join(', ')||'—'));return}
     var a=o[k]||'',b=n[k]||'';if(a===b)return;
     if(k==='resume'){out.push('résumé des faits modifié');return}
-    if(k==='acces'){var ac=function(x){return x==='service'?'chargés + service':'chargés seulement'};out.push('accès : '+ac(o.acces)+' → '+ac(n.acces));return}
     var f=function(x){return k==='assigne_a'?(x?who(x):'—'):(x||'—')};
     out.push(DLAB[k]+' : «\u00a0'+f(a)+'\u00a0» → «\u00a0'+f(b)+'\u00a0»');
   });
@@ -1155,27 +1175,25 @@ function fday(iso){try{return new Date(iso).toLocaleDateString('fr-BE',{weekday:
 function ftime(iso){var d=new Date(iso);return p2(d.getHours())+'h'+p2(d.getMinutes())}
 function dtLocal(d){return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T'+p2(d.getHours())+':'+p2(d.getMinutes())}
 function dkey(iso){var d=new Date(iso);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())}
-var ACCES_LAB={charges:'Personnes chargées seulement',service:'Personnes chargées + un service'};
 var PEINE_MSG='Libération à l’échéance : la Police établit l’ordre de libération (Code V, Art. 33).';
 
 /* ---------- Dossier : sections supplémentaires ---------- */
 async function dossierExtras(d){
   var ech=await API.list('echeances',{dossier_id:d.id});
   var links=await API.list('dossier_personnes',{dossier_id:d.id});
-  var reg=canRegistry()?await API.list('personnes'):[];
   var now=Date.now();
   var alerte=ech.filter(function(e){return e.type==='Fin de peine'&&!e.done&&new Date(e.date_heure).getTime()<=now+48*36e5});
-  var access='<p class="sub" style="margin-top:6px">🔒 Accès à ce dossier : <b>'+esc(d.acces==='service'&&d.service_acces?'personnes chargées + service « '+d.service_acces+' »':'personnes chargées seulement')+'</b> (les administrateurs et la personne qui l’a ouvert le voient toujours).</p>';
+  var access='<p class="sub" style="margin-top:6px">🔒 Seuls les administrateurs, la personne qui a ouvert le dossier et les personnes chargées du dossier le voient.</p>';
   var top=(alerte.length?'<div class="alert">⚠ '+alerte.map(function(e){return 'Fin de peine le '+fday(e.date_heure)+' à '+ftime(e.date_heure)}).join(' ; ')+'. '+esc(PEINE_MSG)+'</div>':'')+access;
   /* personnes concernées */
   var pers='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Personnes concernées ('+links.length+')</h2>'+
-    (links.length?'<div class="mf" style="margin-top:8px">'+links.map(function(l){return '<span class="pc"><span class="fchip"><b>'+esc(l.role)+'</b> '+(l.personne_id&&canRegistry()?'<a href="#personne-'+qa(l.personne_id)+'">'+esc(l.nom)+'</a>':esc(l.nom))+'</span><button class="pdel" type="button" data-lrm="'+qa(l.id)+'" data-lname="'+qa(l.nom)+'" title="Retirer" aria-label="Retirer '+qa(l.nom)+'">×</button></span>'}).join('')+'</div>':'<p class="sub">Aucune personne enregistrée (prévenu, victime, témoins…).</p>')+
-    '<form id="lf" class="inl"><select id="l_role" aria-label="Rôle">'+opts(PERS_ROLES,'Prévenu')+'</select><input id="l_nom" list="l_dl" placeholder="Nom et prénom" required aria-label="Nom">'+(canRegistry()?'<datalist id="l_dl">'+reg.map(function(p){return '<option value="'+qa(p.nom)+'">'}).join('')+'</datalist>':'')+'<button class="btn small" type="submit">Ajouter</button></form>'+(canRegistry()?'<p class="sub small">Une fiche est créée dans le Répertoire si la personne n’y figure pas encore.</p>':'')+'</section>';
+    (links.length?'<div class="mf" style="margin-top:8px">'+links.map(function(l){return '<span class="pc"><span class="fchip"><b>'+esc(l.role)+'</b> '+esc(l.nom)+'</span><button class="pdel" type="button" data-lrm="'+qa(l.id)+'" data-lname="'+qa(l.nom)+'" title="Retirer" aria-label="Retirer '+qa(l.nom)+'">×</button></span>'}).join('')+'</div>':'<p class="sub">Aucune personne enregistrée (prévenu, victime, témoins…).</p>')+
+    '<form id="lf" class="inl"><select id="l_role" aria-label="Rôle">'+opts(PERS_ROLES,'Prévenu')+'</select><input id="l_nom" placeholder="Nom et prénom" required aria-label="Nom">'+'<button class="btn small" type="submit">Ajouter</button></form></section>';
   /* échéances */
   var es=ech.slice().sort(function(a,b){return a.date_heure<b.date_heure?-1:1});
   var agenda='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Dates et échéances ('+es.filter(function(e){return !e.done}).length+' à venir)</h2>'+
-    (es.length?'<ul class="ech">'+es.map(function(e){var late=!e.done&&new Date(e.date_heure).getTime()<now;return '<li class="'+(e.done?'done':late?'late':'')+(e.type==='Fin de peine'&&!e.done?' peine':'')+'"><label><input type="checkbox" data-edone="'+qa(e.id)+'"'+(e.done?' checked':'')+' aria-label="Fait"> <b>'+esc(e.type)+'</b> · '+fday(e.date_heure)+' à '+ftime(e.date_heure)+(e.note?' — '+esc(e.note):'')+(late?' <em>(en retard)</em>':'')+'</label><button class="pdel" type="button" data-erm="'+qa(e.id)+'" data-etype="'+qa(e.type)+'" title="Supprimer" aria-label="Supprimer">×</button></li>'}).join('')+'</ul>':'<p class="sub">Aucune date enregistrée.</p>')+
-    '<form id="ef" class="inl"><select id="e_type" aria-label="Type">'+opts(ECH_TYPES,'Audience')+'</select><input id="e_dt" type="datetime-local" required aria-label="Date et heure" value="'+dtLocal(new Date(Date.now()+864e5))+'"><input id="e_note" placeholder="Précision (salle, objet…)" aria-label="Précision"><button class="btn small" type="submit">Ajouter</button></form></section>';
+    (es.length?'<ul class="ech">'+es.map(function(e){var late=!e.done&&new Date(e.date_heure).getTime()<now;return '<li class="'+(e.done?'done':late?'late':'')+(e.type==='Fin de peine'&&!e.done?' peine':'')+'"><label><input type="checkbox" data-edone="'+qa(e.id)+'"'+(e.done?' checked':'')+' aria-label="Fait"> <b>'+esc(e.type)+'</b> · '+fday(e.date_heure)+' à '+ftime(e.date_heure)+(e.done?'':' · <em>'+reste(e.date_heure)+'</em>')+(e.note?' — '+esc(e.note):'')+'</label><button class="pdel" type="button" data-erm="'+qa(e.id)+'" data-etype="'+qa(e.type)+'" title="Supprimer" aria-label="Supprimer">×</button></li>'}).join('')+'</ul>':'<p class="sub">Aucune date enregistrée.</p>')+
+    '<form id="ef" class="effrm"><div class="inl"><select id="e_type" aria-label="Type d’échéance"><optgroup label="Délai calculé par le Code">'+DELAIS.map(function(x){return '<option value="d:'+x.k+'">'+esc(x.l+' ('+dlLabel(x)+')')+'</option>'}).join('')+'</optgroup><optgroup label="Date à saisir (fixée par une décision)">'+ECH_TYPES.map(function(t){return '<option value="m:'+qa(t)+'">'+esc(t)+'</option>'}).join('')+'</optgroup></select></div><div class="inl"><label class="inl" id="e_dtl"><span id="e_dtt">Point de départ</span> <input id="e_dt" type="datetime-local" required value="'+dtLocal(new Date())+'"></label><input id="e_note" placeholder="Précision (facultatif)" aria-label="Précision"><button class="btn small" type="submit">Ajouter</button></div><p class="sub" id="e_prev"></p></form></section>';
   top+=pers+agenda;
   /* étapes */
   var tp=d.type_procedure||'',P=PROCS[tp],et=d.etapes||{};
@@ -1192,17 +1210,23 @@ async function dossierExtras(d){
 function bindExtras(id){
   var go=function(fn){return async function(e){if(e&&e.preventDefault)e.preventDefault();try{await fn(e)}catch(err){flash(err.message,true)}}};
   var f=$('#lf');if(f)f.addEventListener('submit',go(async function(){
-    var nom=$('#l_nom').value.trim(),role=$('#l_role').value;if(!nom)return;var pid=null;
-    if(canRegistry()){var ex=(await API.list('personnes')).filter(function(p){return norm(p.nom)===norm(nom)})[0];if(!ex)ex=await API.ins('personnes',{nom:nom,naissance:'',adresse:'',notes:''});pid=ex.id}
-    await API.ins('dossier_personnes',{dossier_id:id,personne_id:pid,nom:nom,role:role});
+    var nom=$('#l_nom').value.trim(),role=$('#l_role').value;if(!nom)return;
+    await API.ins('dossier_personnes',{dossier_id:id,nom:nom,role:role});
     await API.log(id,'Personne ajoutée : '+nom+' ('+role+')');route(true)}));
   document.querySelectorAll('[data-lrm]').forEach(function(b){b.addEventListener('click',go(async function(){
     if(!confirm('Retirer « '+b.getAttribute('data-lname')+' » de ce dossier ?'))return;
     await API.del('dossier_personnes',b.getAttribute('data-lrm'));await API.log(id,'Personne retirée : '+b.getAttribute('data-lname'));route(true)}))});
-  var ef=$('#ef');if(ef)ef.addEventListener('submit',go(async function(){
-    var t=$('#e_type').value,dt=new Date($('#e_dt').value);if(isNaN(dt))throw new Error('Date invalide.');
-    await API.ins('echeances',{dossier_id:id,type:t,date_heure:dt.toISOString(),note:$('#e_note').value.trim(),done:false});
-    await API.log(id,'Échéance ajoutée : '+t+' le '+fday(dt.toISOString())+' à '+ftime(dt.toISOString()));route(true)}));
+  var ef=$('#ef');
+  var cur=function(){var v=$('#e_type').value;if(v.indexOf('d:')===0){var k=v.slice(2);return {dl:DELAIS.filter(function(x){return x.k===k})[0]}}return {man:v.slice(2)}};
+  var upd=function(){var c=cur(),dt=new Date($('#e_dt').value),pv=$('#e_prev');if(c.dl){$('#e_dtt').textContent=c.dl.dep+' :';if(isNaN(dt)){pv.textContent='';return}var end=calcDelai(c.dl,dt);pv.innerHTML='Échéance calculée : <b>'+esc(fday(end.toISOString())+' à '+ftime(end.toISOString()))+'</b> ('+esc(reste(end.toISOString()))+') — '+esc(c.dl.ref)}else{$('#e_dtt').textContent='Date et heure :';pv.textContent=''}};
+  if(ef){$('#e_type').addEventListener('change',upd);$('#e_dt').addEventListener('input',upd);upd();
+  ef.addEventListener('submit',go(async function(){
+    var c=cur(),dt=new Date($('#e_dt').value);if(isNaN(dt))throw new Error('Date invalide.');
+    var un=$('#e_note').value.trim(),t,end,note;
+    if(c.dl){end=calcDelai(c.dl,dt);t=c.dl.l;note='Délai de '+dlLabel(c.dl)+' — '+c.dl.dep.toLowerCase()+' : '+fday(dt.toISOString())+' à '+ftime(dt.toISOString())+' ('+c.dl.ref+').'+(c.dl.nb?' '+c.dl.nb:'')+(un?' '+un:'')}
+    else{end=dt;t=c.man;note=un}
+    await API.ins('echeances',{dossier_id:id,type:t,date_heure:end.toISOString(),note:note,done:false});
+    await API.log(id,'Échéance ajoutée : '+t+' le '+fday(end.toISOString())+' à '+ftime(end.toISOString()));route(true)}))}
   document.querySelectorAll('[data-edone]').forEach(function(c){c.addEventListener('change',go(async function(){
     await API.upd('echeances',c.getAttribute('data-edone'),{done:c.checked});await API.log(id,'Échéance '+(c.checked?'terminée':'rouverte'));route(true)}))});
   document.querySelectorAll('[data-erm]').forEach(function(b){b.addEventListener('click',go(async function(){
@@ -1270,7 +1294,7 @@ async function homeExtras(){
       (isAdm()?'<details class="newann"><summary>Publier une annonce</summary><form id="anf" class="form wide"><label>Titre<input id="an_t" required></label><label>Texte<textarea id="an_c" rows="3"></textarea></label><div class="comprow"><button class="btn" type="submit">Publier</button></div></form></details>':'')+'</section>';
   }
   h+='<section class="block"><h2>Cette semaine</h2>'+(alertes.length?'<div class="alert">⚠ '+alertes.length+' libération'+(alertes.length>1?'s':'')+' à l’échéance dans les 48 heures ou en retard. '+esc(PEINE_MSG)+'</div>':'')+
-    (wk.length?'<div class="grid g-act">'+wk.slice(0,8).map(function(e){var d=dm[e.dossier_id],late=new Date(e.date_heure).getTime()<now;return '<a class="act'+(late?' late':'')+'" href="#dossier-'+qa(d.id)+'"><b>'+esc(e.type)+' · '+esc(d.numero)+'</b><span>'+esc(d.titre)+(e.note?' — '+esc(e.note):'')+'</span><em>'+(late?'En retard · ':'')+fday(e.date_heure)+' '+ftime(e.date_heure)+'</em></a>'}).join('')+'</div>'+(wk.length>8?'<p style="margin-top:10px"><a href="#agenda">Voir tout l’agenda →</a></p>':''):'<p class="sub">Rien à l’agenda dans les 7 prochains jours. <a href="#agenda">Ouvrir l’agenda</a></p>')+'</section>';
+    (wk.length?'<div class="grid g-act">'+wk.slice(0,8).map(function(e){var d=dm[e.dossier_id],late=new Date(e.date_heure).getTime()<now;return '<a class="act'+(late?' late':'')+'" href="#dossier-'+qa(d.id)+'"><b>'+esc(e.type)+' · '+esc(d.numero)+'</b><span>'+esc(d.titre)+(e.note?' — '+esc(e.note):'')+'</span><em>'+fday(e.date_heure)+' '+ftime(e.date_heure)+' · '+reste(e.date_heure)+'</em></a>'}).join('')+'</div>'+(wk.length>8?'<p style="margin-top:10px"><a href="#agenda">Voir tout l’agenda →</a></p>':''):'<p class="sub">Rien à l’agenda dans les 7 prochains jours. <a href="#agenda">Ouvrir l’agenda</a></p>')+'</section>';
   return h;
 }
 function bindHome(){
@@ -1286,71 +1310,18 @@ async function viewAgenda(){
   var now=Date.now();
   var l=ech.filter(function(e){var d=dm[e.dossier_id];return d&&(AQ.past||(!e.done&&d.statut!=='Classé'))&&(!AQ.mine||isMine(d))}).sort(function(a,b){return a.date_heure<b.date_heure?-1:1});
   var late=l.filter(function(e){return !e.done&&new Date(e.date_heure).getTime()<now}),next=l.filter(function(e){return !(late.indexOf(e)>=0)});
-  var row=function(e){var d=dm[e.dossier_id];return '<li class="'+(e.done?'done':'')+(e.type==='Fin de peine'&&!e.done?' peine':'')+'"><label><input type="checkbox" data-adone="'+qa(e.id)+'" data-ad="'+qa(d.id)+'"'+(e.done?' checked':'')+' aria-label="Fait"> <b>'+esc(e.type)+'</b> · '+fday(e.date_heure)+' à '+ftime(e.date_heure)+' — <a href="#dossier-'+qa(d.id)+'">'+esc(d.numero+' · '+d.titre)+'</a>'+(e.note?' · '+esc(e.note):'')+'</label></li>'};
+  var row=function(e){var d=dm[e.dossier_id];return '<li class="'+(e.done?'done':'')+(e.type==='Fin de peine'&&!e.done?' peine':'')+'"><label><input type="checkbox" data-adone="'+qa(e.id)+'" data-ad="'+qa(d.id)+'"'+(e.done?' checked':'')+' aria-label="Fait"> <b>'+esc(e.type)+'</b> · '+fday(e.date_heure)+' à '+ftime(e.date_heure)+(e.done?'':' · <em>'+reste(e.date_heure)+'</em>')+' — <a href="#dossier-'+qa(d.id)+'">'+esc(d.numero+' · '+d.titre)+'</a>'+(e.note?' · '+esc(e.note):'')+'</label></li>'};
   var grp={},order=[];next.forEach(function(e){var k=dkey(e.date_heure);if(!grp[k]){grp[k]=[];order.push(k)}grp[k].push(e)});
   var tb=function(k,t){return '<button class="tab'+((AQ.mine?'mine':'all')===k?' on':'')+'" data-aq="'+k+'" type="button">'+t+'</button>'};
   return '<div class="wrap page">'+pageHead('Agenda','Les audiences, délais et échéances de vos dossiers.')+'<div class="tabs">'+tb('mine','Mes dossiers')+tb('all','Tous les dossiers visibles')+'</div><label class="chk"><input type="checkbox" id="apast"'+(AQ.past?' checked':'')+'> Afficher aussi les échéances terminées</label>'+
    (late.some(function(e){return e.type==='Fin de peine'})?'<div class="alert">⚠ Libération à l’échéance en retard. '+esc(PEINE_MSG)+'</div>':'')+
    (late.length?'<h2 style="font-size:20px;margin:18px 0 6px;color:#B42318">En retard</h2><ul class="ech">'+late.map(row).join('')+'</ul>':'')+
-   (order.length?order.map(function(k){return '<h2 style="font-size:20px;margin:18px 0 6px">'+esc(fday(grp[k][0].date_heure))+'</h2><ul class="ech">'+grp[k].map(row).join('')+'</ul>'}).join(''):(late.length?'':'<p class="empty">Aucune échéance.</p>'))+'<p class="sub" style="margin-top:20px">Pour ajouter une date, ouvrez le dossier concerné, section « Dates et échéances ».</p></div>';
+   (order.length?order.map(function(k){return '<h2 style="font-size:20px;margin:18px 0 6px">'+esc(fday(grp[k][0].date_heure))+'</h2><ul class="ech">'+grp[k].map(row).join('')+'</ul>'}).join(''):(late.length?'':'<p class="empty">Aucune échéance.</p>'))+'<p class="sub" style="margin-top:20px">Pour ajouter une date ou un délai, ouvrez le dossier concerné, section « Dates et échéances » : les délais du Code (appel, pourvoi, 24 h…) se calculent tout seuls.</p></div>';
 }
 function bindAgenda(){
   document.querySelectorAll('[data-aq]').forEach(function(b){b.addEventListener('click',function(){AQ.mine=b.getAttribute('data-aq')==='mine';route(true)})});
   var p=$('#apast');if(p)p.addEventListener('change',function(){AQ.past=p.checked;route(true)});
   document.querySelectorAll('[data-adone]').forEach(function(c){c.addEventListener('change',async function(){try{await API.upd('echeances',c.getAttribute('data-adone'),{done:c.checked});await API.log(c.getAttribute('data-ad'),'Échéance '+(c.checked?'terminée':'rouverte'));route(true)}catch(e){flash(e.message,true)}})});
-}
-
-/* ---------- Répertoire des justiciables ---------- */
-var RQ='';
-async function viewRepertoire(){
-  if(!canRegistry())return '<div class="wrap page">'+pageHead('Accès refusé','Le répertoire est réservé au Parquet, au Siège, à l’Instruction, au Greffe et aux administrateurs.')+'</div>';
-  var ps=await API.list('personnes'),ms=await API.list('mesures'),v=norm(RQ);
-  var act={};ms.forEach(function(m){if(m.active)act[m.personne_id]=(act[m.personne_id]||0)+1});
-  ps=ps.filter(function(p){return !v||norm(p.nom+' '+(p.naissance||'')+' '+(p.adresse||'')).indexOf(v)>=0}).sort(function(a,b){return a.nom.localeCompare(b.nom)});
-  return '<div class="wrap page">'+pageHead('Répertoire des justiciables','Une fiche par personne : ses dossiers, ses condamnations et ses mesures en cours.')+
-   '<div class="bar"><input class="filter" id="rq" type="search" value="'+qa(RQ)+'" placeholder="Rechercher un nom" aria-label="Rechercher une personne"></div>'+
-   (ps.length?'<div class="dlist">'+ps.map(function(p){return '<a class="dcard" href="#personne-'+qa(p.id)+'"><span class="dnum">Fiche</span><b>'+esc(p.nom)+'</b><span>'+esc([p.naissance&&('né(e) le '+p.naissance),p.adresse].filter(Boolean).join(' · '))+'</span><span class="stt'+(act[p.id]?' st-Appel':'')+'">'+(act[p.id]?act[p.id]+' mesure'+(act[p.id]>1?'s':'')+' en cours':'Aucune mesure')+'</span><small></small></a>'}).join('')+'</div>':'<p class="empty">Aucune fiche.</p>')+
-   '<details class="newann"><summary>Nouvelle fiche</summary><form id="pf" class="form wide"><label>Nom et prénom<input id="p_nom" required></label><div class="two"><label>Date de naissance<input id="p_nai" placeholder="jj/mm/aaaa"></label><label>Adresse<input id="p_adr"></label></div><label>Remarques<textarea id="p_not" rows="3"></textarea></label><div class="comprow"><button class="btn" type="submit">Créer la fiche</button></div></form></details></div>';
-}
-function bindRepertoire(){
-  var q=$('#rq'),tm;if(q)q.addEventListener('input',function(){clearTimeout(tm);tm=setTimeout(function(){RQ=q.value;route(true)},250)});
-  var f=$('#pf');if(f)f.addEventListener('submit',async function(e){e.preventDefault();try{var p=await API.ins('personnes',{nom:$('#p_nom').value.trim(),naissance:$('#p_nai').value.trim(),adresse:$('#p_adr').value.trim(),notes:$('#p_not').value.trim()});location.hash='personne-'+p.id}catch(err){flash(err.message,true)}});
-}
-async function viewPersonne(id){
-  if(!canRegistry())return '<div class="wrap page">'+pageHead('Accès refusé','Le répertoire est réservé au Parquet, au Siège, à l’Instruction, au Greffe et aux administrateurs.')+'</div>';
-  await loadMembers();
-  var p=(await API.list('personnes')).filter(function(x){return x.id===id})[0];
-  if(!p)return '<div class="wrap page">'+pageHead('Fiche introuvable','')+'<a class="btn" href="#repertoire">Retour au répertoire</a></div>';
-  var ms=await API.list('mesures',{personne_id:id}),lk=await API.list('dossier_personnes',{personne_id:id}),ds=await API.dossiers(),dm={};ds.forEach(function(d){dm[d.id]=d});
-  var crumb='<a href="#repertoire">Répertoire</a> › '+esc(p.nom);
-  var now=new Date().toISOString().slice(0,10);
-  return '<div class="wrap page">'+pageHead(esc(p.nom),'Fiche créée le '+fdate(p.created_at)+(p.created_by?' par '+esc(who(p.created_by)):'')+'.',crumb)+
-   '<form id="pef" class="form wide"><div class="two"><label>Nom et prénom<input id="pe_nom" value="'+qa(p.nom)+'" required></label><label>Date de naissance<input id="pe_nai" value="'+qa(p.naissance||'')+'"></label></div><label>Adresse<input id="pe_adr" value="'+qa(p.adresse||'')+'"></label><label>Remarques<textarea id="pe_not" rows="3">'+esc(p.notes||'')+'</textarea></label><div class="comprow"><button class="btn" type="submit">Enregistrer la fiche</button>'+(isAdm()?'<button class="btn danger" id="pe_del" type="button">Supprimer la fiche</button>':'')+'</div></form>'+
-   '<section class="block" style="padding-top:20px"><h2 style="font-size:22px">Mesures et condamnations ('+ms.length+')</h2>'+
-   (ms.length?'<ul class="ech">'+ms.slice().sort(function(a,b){return (b.active?1:0)-(a.active?1:0)}).map(function(m){var late=m.active&&m.date_fin&&m.date_fin<now;return '<li class="'+(m.active?'':'done')+(late?' late':'')+'"><label><input type="checkbox" data-mact="'+qa(m.id)+'"'+(m.active?' checked':'')+' aria-label="En cours"> <b>'+esc(m.type)+'</b>'+(m.date_debut?' · du '+esc(m.date_debut):'')+(m.date_fin?' au '+esc(m.date_fin):'')+(m.description?' — '+esc(m.description):'')+(m.dossier_id&&dm[m.dossier_id]?' · <a href="#dossier-'+qa(m.dossier_id)+'">'+esc(dm[m.dossier_id].numero)+'</a>':'')+(late?' <em>(date de fin dépassée)</em>':'')+'</label><button class="pdel" type="button" data-mrm="'+qa(m.id)+'" title="Supprimer" aria-label="Supprimer">×</button></li>'}).join('')+'</ul><p class="sub small">La case cochée signifie « en cours ».</p>':'<p class="sub">Aucune mesure enregistrée.</p>')+
-   '<form id="mf" class="inl wrapf"><select id="m_type" aria-label="Type">'+opts(MESURE_TYPES,'Condamnation')+'</select><input id="m_desc" placeholder="Détail (peine, obligations…)" aria-label="Détail"><select id="m_dos" aria-label="Dossier lié"><option value="">Dossier (facultatif)</option>'+ds.map(function(d){return '<option value="'+qa(d.id)+'">'+esc(d.numero+' · '+d.titre)+'</option>'}).join('')+'</select><label class="inl">Du <input id="m_d1" type="date"></label><label class="inl">au <input id="m_d2" type="date"></label><button class="btn small" type="submit">Ajouter</button></form></section>'+
-   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Dossiers ('+lk.filter(function(l){return dm[l.dossier_id]}).length+')</h2>'+(lk.filter(function(l){return dm[l.dossier_id]}).map(function(l){var d=dm[l.dossier_id];return '<a class="act" href="#dossier-'+qa(d.id)+'"><b>'+esc(d.numero+' · '+d.titre)+'</b><span>'+esc(l.role)+' · '+esc(d.juridiction||'')+'</span><em>'+esc(d.statut)+'</em></a>'}).join('')||'<p class="sub">Aucun dossier visible pour vous.</p>')+'</section></div>';
-}
-function bindPersonne(id){
-  var go=function(fn){return async function(e){if(e&&e.preventDefault)e.preventDefault();try{await fn(e)}catch(err){flash(err.message,true)}}};
-  var f=$('#pef');if(f)f.addEventListener('submit',go(async function(){await API.upd('personnes',id,{nom:$('#pe_nom').value.trim(),naissance:$('#pe_nai').value.trim(),adresse:$('#pe_adr').value.trim(),notes:$('#pe_not').value.trim()});flash('Fiche enregistrée.');route(true)}));
-  var dl=$('#pe_del');if(dl)dl.addEventListener('click',go(async function(){if(!confirm('Supprimer cette fiche et ses mesures ?'))return;await API.del('personnes',id);location.hash='repertoire'}));
-  var mf=$('#mf');if(mf)mf.addEventListener('submit',go(async function(){await API.ins('mesures',{personne_id:id,type:$('#m_type').value,description:$('#m_desc').value.trim(),dossier_id:$('#m_dos').value||null,date_debut:$('#m_d1').value||null,date_fin:$('#m_d2').value||null,active:true});route(true)}));
-  document.querySelectorAll('[data-mact]').forEach(function(c){c.addEventListener('change',go(async function(){await API.upd('mesures',c.getAttribute('data-mact'),{active:c.checked});route(true)}))});
-  document.querySelectorAll('[data-mrm]').forEach(function(b){b.addEventListener('click',go(async function(){if(!confirm('Supprimer cette mesure ?'))return;await API.del('mesures',b.getAttribute('data-mrm'));route(true)}))});
-}
-
-/* ---------- Registre des lois (journal tenu par les administrateurs) ---------- */
-async function viewRegistre(){
-  await loadMembers();
-  var l=(await API.list('registre_lois')).sort(function(a,b){return a.date<b.date?1:-1});
-  return '<div class="wrap page">'+pageHead('Registre des lois','Ce qui a changé dans les Codes, et à quelle date. Un texte n’est applicable que s’il est publié au Registre des lois (Code I, Art. 60).')+
-   (l.length?'<div class="reg">'+l.map(function(x){return '<div class="ann"><div><b>'+esc(fdate(x.date).split(' ')[0])+' · '+esc(x.code||'')+(x.articles?' · '+esc(x.articles):'')+'</b><div>'+linkify(esc(x.resume||'').replace(/\n/g,'<br>'),null)+'</div></div>'+(isAdm()?'<button class="pdel" type="button" data-rgrm="'+qa(x.id)+'" title="Supprimer" aria-label="Supprimer">×</button>':'')+'</div>'}).join('')+'</div>':'<p class="empty">Aucune entrée pour l’instant.</p>')+
-   (isAdm()?'<details class="newann" open><summary>Ajouter une entrée</summary><form id="rgf" class="form wide"><div class="two"><label>Date de publication<input id="rg_d" type="date" required value="'+new Date().toISOString().slice(0,10)+'"></label><label>Code<select id="rg_c">'+opts(['Code I','Code II','Code III','Code IV','Code V','Code VI','Code VII','Code VIII'],'Code II')+'</select></label></div><label>Articles concernés<input id="rg_a" placeholder="ex. Art. 12 et 13"></label><label>Ce qui change<textarea id="rg_r" rows="3" required></textarea></label><div class="comprow"><button class="btn" type="submit">Enregistrer</button></div></form></details>':'')+'</div>';
-}
-function bindRegistre(){
-  document.querySelectorAll('[data-rgrm]').forEach(function(b){b.addEventListener('click',async function(){if(!confirm('Supprimer cette entrée ?'))return;try{await API.del('registre_lois',b.getAttribute('data-rgrm'));route(true)}catch(e){flash(e.message,true)}})});
-  var f=$('#rgf');if(f)f.addEventListener('submit',async function(e){e.preventDefault();try{await API.ins('registre_lois',{date:$('#rg_d').value,code:$('#rg_c').value,articles:$('#rg_a').value.trim(),resume:$('#rg_r').value.trim()});flash('Entrée ajoutée.');route(true)}catch(err){flash(err.message,true)}});
 }
 
 /* ---------- Administration : statistiques et sauvegarde ---------- */
@@ -1370,10 +1341,9 @@ function bindAdminExtras(){
 /* ===================== NAVIGATION ET DÉMARRAGE ===================== */
 function navHtml(cur){
   var sec=cur.split('-')[0];
-  var items=[['accueil','Accueil'],['messages','Messagerie'],['dossiers','Dossiers'],['agenda','Agenda'],['annuaire','Annuaire'],['codes','Codes'],['guides','Guides'],['documents','Documents'],['registre','Registre']];
-  if(canRegistry())items.splice(4,0,['repertoire','Répertoire']);
+  var items=[['accueil','Accueil'],['messages','Messagerie'],['dossiers','Dossiers'],['agenda','Agenda'],['annuaire','Annuaire'],['codes','Codes'],['guides','Guides'],['documents','Documents']];
   if(isAdm())items.push(['admin','Administration']);
-  var group=/^c[1-8]$/.test(sec)?'codes':sec==='g'?'guides':sec==='dossier'||sec==='nouveau'?'dossiers':sec==='personne'?'repertoire':sec==='recherche'?'accueil':sec;
+  var group=/^c[1-8]$/.test(sec)?'codes':sec==='g'?'guides':sec==='dossier'||sec==='nouveau'?'dossiers':sec==='recherche'?'accueil':sec;
   $('#nav').innerHTML=ME?items.map(function(n){return '<a href="#'+n[0]+'"'+(n[0]===group?' aria-current="page"':'')+'>'+n[1]+'</a>'}).join('')+'<button class="theme" id="lo" type="button">Déconnexion</button>':'';
   var lo=$('#lo');if(lo)lo.addEventListener('click',logout);
   renderBadges();
@@ -1409,9 +1379,6 @@ async function route(force){
     else if(h==='nouveau-dossier'){html=await viewNewDossier();after=function(){bindDossierForm(null)}}
     else if((m=h.match(/^dossier-(.+)$/))){var did=m[1];html=await viewDossier(did);after=function(){bindDossier(did)}}
     else if(h==='agenda'){html=await viewAgenda();after=bindAgenda}
-    else if(h==='repertoire'){html=await viewRepertoire();after=bindRepertoire}
-    else if((m=h.match(/^personne-(.+)$/))){var pid=m[1];html=await viewPersonne(pid);after=function(){bindPersonne(pid)}}
-    else if(h==='registre'){html=await viewRegistre();after=bindRegistre}
     else if(h==='admin'){html=await viewAdmin();after=bindAdmin}
     else if((m=h.match(/^c([1-8])(?:-(.+))?$/))){html=viewCode(+m[1]);target=m[2]?h:null}
     else if((m=h.match(/^g-(citoyen|chef|avocat|juge|instruction|procureur)(?:-(\d+))?$/))){html=viewGuide(m[1]);target=m[2]?h:null}
