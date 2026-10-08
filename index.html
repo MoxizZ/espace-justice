@@ -360,6 +360,7 @@ dl.pen.big{max-width:820px;margin-top:18px}
 .edpage td>p:empty::after{content:"";}
 @media (max-width:700px){.edmod{padding:0}.edbox{max-height:100vh;border-radius:0}.edpage{padding:6px}}
 .indsub{font-size:15px;color:#4A5568;margin-top:4px;font-weight:600}.edfold{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}.edfold select{flex:1;min-width:200px}
+.nomin{min-width:170px;font-weight:600}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -1199,7 +1200,7 @@ async function viewAdmin(){
   return '<div class="wrap page">'+pageHead('Administration','Validez les nouveaux comptes et attribuez les grades. '+(isSuper()?'Vous êtes super-administrateur : vous seul changez les rôles et supprimez des comptes. ':'Les rôles et les suppressions de comptes sont réservés au super-administrateur. ')+(pend?'<b>'+pend+' compte'+(pend>1?'s':'')+' en attente.</b>':'Aucun compte en attente.'))+
   '<div class="tblwrap" style="max-width:none"><table class="vt adm"><thead><tr><th>Nom</th><th>E-mail</th><th>Grade</th><th>Service</th><th>Fonction</th><th>Rôle</th><th>Actif</th><th></th></tr></thead><tbody>'+ms.map(function(m){
     var locked=m.role==='super'&&m.id!==ME.id;
-    return '<tr data-id="'+qa(m.id)+'"'+(m.approved?'':' class="pend-row"')+'><td><b>'+esc(m.nom)+'</b></td><td>'+esc(m.email||'')+'</td><td><select data-f="grade"'+(locked?' disabled':'')+'>'+opts(GRADES,m.grade)+'</select></td><td><select data-f="service"'+(locked?' disabled':'')+'>'+opts(SERVICES,m.service)+'</select></td><td><input data-f="fonction"'+(locked?' disabled':'')+' value="'+qa(m.fonction||'')+'" placeholder="ex. Permanence"></td><td>'+(m.role==='super'?'<span class="badge-super">Super-admin</span>':'<select data-f="role"'+(isSuper()?'':' disabled title="Seul le super-administrateur change les rôles"')+'>'+opts(['membre','admin'],m.role)+'</select>')+'</td><td><input type="checkbox" data-f="approved"'+(m.approved?' checked':'')+((m.id===ME.id||m.role==='super')?' disabled':'')+' aria-label="Compte actif"></td><td>'+(locked?'<small>🔒 Compte protégé</small>':'<button class="btn small" data-save="'+qa(m.id)+'" type="button">Enregistrer</button>'+((isSuper()&&m.id!==ME.id)?' <button class="btn small danger" data-rmm="'+qa(m.id)+'" type="button">Supprimer</button>':''))+'</td></tr>'}).join('')+'</tbody></table></div>'+
+    return '<tr data-id="'+qa(m.id)+'"'+(m.approved?'':' class="pend-row"')+'><td><input data-f="nom" class="nomin"'+(locked?' disabled':'')+' value="'+qa(m.nom||'')+'" aria-label="Nom RP" required></td><td>'+esc(m.email||'')+'</td><td><select data-f="grade"'+(locked?' disabled':'')+'>'+opts(GRADES,m.grade)+'</select></td><td><select data-f="service"'+(locked?' disabled':'')+'>'+opts(SERVICES,m.service)+'</select></td><td><input data-f="fonction"'+(locked?' disabled':'')+' value="'+qa(m.fonction||'')+'" placeholder="ex. Permanence"></td><td>'+(m.role==='super'?'<span class="badge-super">Super-admin</span>':'<select data-f="role"'+(isSuper()?'':' disabled title="Seul le super-administrateur change les rôles"')+'>'+opts(['membre','admin'],m.role)+'</select>')+'</td><td><input type="checkbox" data-f="approved"'+(m.approved?' checked':'')+((m.id===ME.id||m.role==='super')?' disabled':'')+' aria-label="Compte actif"></td><td>'+(locked?'<small>🔒 Compte protégé</small>':'<button class="btn small" data-save="'+qa(m.id)+'" type="button">Enregistrer</button>'+((isSuper()&&m.id!==ME.id)?' <button class="btn small danger" data-rmm="'+qa(m.id)+'" type="button">Supprimer</button>':''))+'</td></tr>'}).join('')+'</tbody></table></div>'+
   (await adminExtras())+(LIVE?'':'<p class="small" style="margin-top:14px"><a href="#" id="areset">Réinitialiser la démonstration</a></p>')+'</div>';
 }
 function bindAdmin(){
@@ -1208,6 +1209,7 @@ function bindAdmin(){
     var tr=b.closest('tr'),id=b.getAttribute('data-save'),f={};
     tr.querySelectorAll('[data-f]').forEach(function(x){f[x.getAttribute('data-f')]=x.type==='checkbox'?x.checked:x.value});
     if(id===ME.id){f.approved=true;f.role=f.role}
+    if('nom' in f){f.nom=f.nom.trim();if(!f.nom){flash('Le nom ne peut pas être vide.',true);return}}
     try{await API.updateMember(id,f);flash('Membre mis à jour.');route(true)}catch(e){flash(e.message,true)}
   })});
   document.querySelectorAll('[data-rmm]').forEach(function(b){b.addEventListener('click',async function(){
@@ -1373,25 +1375,10 @@ async function adminExtras(){
   var bars=function(o,max){var ks=Object.keys(o);var mx=Math.max.apply(null,ks.map(function(k){return o[k]}).concat([1]));return ks.length?ks.map(function(k){return '<div class="brow"><span>'+esc(k)+'</span><i style="width:'+Math.round(100*o[k]/mx)+'%"></i><b>'+o[k]+'</b></div>'}).join(''):'<p class="sub">Aucune donnée.</p>'};
   var months=function(f){var o={};var now=new Date();for(var i=5;i>=0;i--){var d=new Date(now.getFullYear(),now.getMonth()-i,1);o[d.getFullYear()+'-'+p2(d.getMonth()+1)]=0}ds.forEach(function(x){var v=f(x);if(v){var k=v.slice(0,7);if(k in o)o[k]++}});return o};
   var h='<h2 style="font-size:22px;margin:30px 0 8px">Statistiques</h2><p class="sub">'+ds.length+' dossier'+(ds.length>1?'s':'')+' au total.</p><div class="stats"><div><h3>Par état</h3>'+bars(cnt(function(d){return d.statut}))+'</div><div><h3>Par juridiction</h3>'+bars(cnt(function(d){return d.juridiction}))+'</div><div><h3>Ouverts par mois</h3>'+bars(months(function(d){return d.created_at}))+'</div><div><h3>Classés par mois</h3>'+bars(months(function(d){return d.statut==='Classé'?d.classe_at:null}))+'</div></div>';
-  var ind={};ds.forEach(function(d){var k=indivKey(d);if(!k)return;if(!ind[k])ind[k]={n:d.ind_nom||'',p:d.ind_prenom||'',c:0};ind[k].c++});
-  var ik=Object.keys(ind).sort();
-  h+='<h2 style="font-size:22px;margin:30px 0 8px">Individus des dossiers</h2><p class="sub">Changement de nom, faute de frappe : corrigez ici et tous les dossiers de la personne (en cours et classés) sont mis à jour. Si le nouveau nom existe déjà, les dossiers sont regroupés.</p>'+(ik.length?'<div class="indadm">'+ik.map(function(k){var o=ind[k];return '<form class="inl indrow" data-ik="'+qa(k)+'"><input class="in_n" value="'+qa(o.n)+'" required aria-label="Nom" placeholder="Nom"><input class="in_p" value="'+qa(o.p)+'" required aria-label="Prénom" placeholder="Prénom"><small>'+o.c+' dossier'+(o.c>1?'s':'')+'</small><button class="btn small" type="submit">Renommer</button></form>'}).join('')+'</div>':'<p class="sub">Aucun individu enregistré.</p>');
-  var sans=ds.filter(function(d){return !indivKey(d)});
-  if(sans.length)h+='<h3 style="margin:18px 0 6px">Dossiers sans individu ('+sans.length+')</h3><p class="sub">Ces dossiers ont été créés avant l’ajout du nom et du prénom. Renseignez-les ici.</p><div class="indadm">'+sans.map(function(d){return '<form class="inl indnew" data-did="'+qa(d.id)+'"><small style="min-width:210px"><b>'+esc(d.numero)+'</b> · '+esc(d.titre)+'</small><input class="in_n" required aria-label="Nom" placeholder="Nom"><input class="in_p" required aria-label="Prénom" placeholder="Prénom"><button class="btn small" type="submit">Enregistrer</button></form>'}).join('')+'</div>';
   if(isSuper())h+='<h2 style="font-size:22px;margin:30px 0 8px">Sauvegarde</h2><p class="sub">Télécharge toutes les données du site (membres, dossiers, notes, journaux, échéances, répertoire, annonces, messages des salons) dans un fichier. À faire de temps en temps.</p><button class="btn" id="bk" type="button">Télécharger la sauvegarde</button>';
   return h;
 }
 function bindAdminExtras(){
-  document.querySelectorAll('.indnew').forEach(function(f){f.addEventListener('submit',async function(e){
-    e.preventDefault();var id=f.getAttribute('data-did'),n=f.querySelector('.in_n').value.trim(),p=f.querySelector('.in_p').value.trim();if(!n||!p)return;
-    try{await API.upd('dossiers',id,{ind_nom:n,ind_prenom:p});await API.log(id,'Individu renseigné : '+n.toUpperCase()+' '+p);flash('Individu enregistré.');route(true)}catch(err){flash(err.message,true)}})});
-  document.querySelectorAll('.indrow').forEach(function(f){f.addEventListener('submit',async function(e){
-    e.preventDefault();var k=f.getAttribute('data-ik'),n=f.querySelector('.in_n').value.trim(),p=f.querySelector('.in_p').value.trim();if(!n||!p)return;
-    try{var ds=(await API.dossiers()).filter(function(d){return indivKey(d)===k});
-      if(!ds.length)throw new Error('Aucun dossier trouvé.');
-      if(!confirm('Renommer en « '+n.toUpperCase()+' '+p+' » ('+ds.length+' dossier'+(ds.length>1?'s':'')+') ?'))return;
-      for(var i=0;i<ds.length;i++){var o=indiv(ds[i]);await API.upd('dossiers',ds[i].id,{ind_nom:n,ind_prenom:p});await API.log(ds[i].id,'Individu renommé : «\u00a0'+o+'\u00a0» → «\u00a0'+n.toUpperCase()+' '+p+'\u00a0»')}
-      flash('Nom mis à jour.');route(true)}catch(err){flash(err.message,true)}})});
   var b=$('#bk');if(b)b.addEventListener('click',async function(){try{var o=await API.backup(),bl=new Blob([JSON.stringify(o,null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='Sauvegarde_Justice_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();flash('Sauvegarde téléchargée.')}catch(e){flash(e.message,true)}});
 }
 
