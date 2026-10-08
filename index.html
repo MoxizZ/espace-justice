@@ -1297,23 +1297,16 @@ async function makeDoc(id,attach){
 
 /* ---------- Accueil : annonces et « cette semaine » ---------- */
 async function homeExtras(){
-  var an=(await API.list('annonces')).reverse().slice(0,3);
   var ech=await API.list('echeances'),ds=await API.dossiers(),dm={};ds.forEach(function(d){dm[d.id]=d});
   var now=Date.now(),lim=now+7*864e5;
   var wk=ech.filter(function(e){return !e.done&&dm[e.dossier_id]&&dm[e.dossier_id].statut!=='Classé'&&new Date(e.date_heure).getTime()<=lim}).sort(function(a,b){return a.date_heure<b.date_heure?-1:1});
   var alertes=wk.filter(function(e){return e.type==='Fin de peine'&&new Date(e.date_heure).getTime()<=now+48*36e5});
   var h='';
-  if(an.length||isAdm()){
-    h+='<section class="block"><h2>Annonces officielles</h2>'+(an.length?an.map(function(a){return '<div class="ann"><div><b>'+esc(a.titre)+'</b><div>'+linkify(esc(a.corps||'').replace(/\n/g,'<br>'),null)+'</div><small>'+fdate(a.created_at)+' · '+esc(who(a.created_by))+'</small></div>'+(isAdm()?'<button class="pdel" type="button" data-anrm="'+qa(a.id)+'" title="Supprimer l’annonce" aria-label="Supprimer l’annonce">×</button>':'')+'</div>'}).join(''):'<p class="sub">Aucune annonce.</p>')+
-      (isAdm()?'<details class="newann"><summary>Publier une annonce</summary><form id="anf" class="form wide"><label>Titre<input id="an_t" required></label><label>Texte<textarea id="an_c" rows="3"></textarea></label><div class="comprow"><button class="btn" type="submit">Publier</button></div></form></details>':'')+'</section>';
-  }
   h+='<section class="block"><h2>Cette semaine</h2>'+(alertes.length?'<div class="alert">⚠ '+alertes.length+' libération'+(alertes.length>1?'s':'')+' à l’échéance dans les 48 heures ou en retard. '+esc(PEINE_MSG)+'</div>':'')+
     (wk.length?'<div class="grid g-act">'+wk.slice(0,8).map(function(e){var d=dm[e.dossier_id],late=new Date(e.date_heure).getTime()<now;return '<a class="act'+(late?' late':'')+'" href="#dossier-'+qa(d.id)+'"><b>'+esc(e.type)+' · '+esc(d.numero)+'</b><span>'+esc(d.titre)+(e.note?' — '+esc(e.note):'')+'</span><em>'+fday(e.date_heure)+' '+ftime(e.date_heure)+' · '+reste(e.date_heure)+'</em></a>'}).join('')+'</div>'+(wk.length>8?'<p style="margin-top:10px"><a href="#agenda">Voir tout l’agenda →</a></p>':''):'<p class="sub">Rien à l’agenda dans les 7 prochains jours. <a href="#agenda">Ouvrir l’agenda</a></p>')+'</section>';
   return h;
 }
 function bindHome(){
-  document.querySelectorAll('[data-anrm]').forEach(function(b){b.addEventListener('click',async function(){if(!confirm('Supprimer cette annonce ?'))return;try{await API.del('annonces',b.getAttribute('data-anrm'));route(true)}catch(e){flash(e.message,true)}})});
-  var f=$('#anf');if(f)f.addEventListener('submit',async function(e){e.preventDefault();try{await API.ins('annonces',{titre:$('#an_t').value.trim(),corps:$('#an_c').value.trim()});flash('Annonce publiée.');route(true)}catch(err){flash(err.message,true)}});
 }
 
 /* ---------- Agenda ---------- */
