@@ -537,6 +537,7 @@ if(!LIVE){
     async signUp(email,pw,nom){var p={id:uid(),email:email,nom:nom,grade:'Autre',service:'Autre',fonction:'',role:'membre',approved:false,created_at:nowIso()};ST.users.push(p);save();sessionStorage.setItem('demo_user',p.id);return p},
     async signOut(){sessionStorage.removeItem('demo_user')},
     async members(){return ST.users.slice()},
+    async deleteMember(id){if(id===ME.id)throw new Error('Vous ne pouvez pas vous supprimer vous-même.');ST.users=ST.users.filter(function(x){return x.id!==id});ST.dossiers.forEach(function(d){if(d.assignes)d.assignes=d.assignes.filter(function(x){return x!==id});if(d.assigne_a===id)d.assigne_a=(d.assignes&&d.assignes[0])||null});save()},
     async updateMember(id,f){var p=ST.users.filter(function(x){return x.id===id})[0];if(p)Object.assign(p,f);save()},
     async deleteMessage(id){var m=ST.messages.filter(function(x){return x.id===id})[0];if(!m)return;if(m.sender!==ME.id&&ME.role!=='admin')throw new Error('Seul un administrateur peut supprimer le message d’un autre.');ST.messages=ST.messages.filter(function(x){return x.id!==id});save()},
     async messages(ch){if(!canChannel(ch))return [];return ST.messages.filter(function(m){return m.channel===ch}).sort(function(a,b){return a.created_at<b.created_at?-1:1}).slice(-200)},
@@ -564,6 +565,7 @@ if(!LIVE){
     async signUp(email,pw,nom){var r=await SB.auth.signUp({email:email,password:pw,options:{data:{nom:nom}}});if(r.error)throw new Error(r.error.message);if(!r.data.session)return {pendingConfirm:true};return API.session()},
     async signOut(){await SB.auth.signOut()},
     async members(){return chk(await SB.from('profiles').select('*').order('nom'))},
+    async deleteMember(id){var r=await SB.rpc('delete_member',{target:id});if(r.error)throw new Error(r.error.message)},
     async updateMember(id,f){chk(await SB.from('profiles').update(f).eq('id',id))},
     async deleteMessage(id){var r=await SB.from('messages').delete().eq('id',id).select();if(r.error)throw new Error(r.error.message);if(!r.data||!r.data.length)throw new Error('Suppression refusée.')},
     async messages(ch){if(!canChannel(ch))return [];return chk(await SB.from('messages').select('*').eq('channel',ch).order('created_at',{ascending:true}).limit(200))},
@@ -590,8 +592,8 @@ function fsize(n){return n>1048576?(n/1048576).toFixed(1)+' Mo':Math.max(1,Math.
 function pdfLink(){return ''}
 var MEMBERS=[],MAP={};
 async function loadMembers(){MEMBERS=await API.members();MAP={};MEMBERS.forEach(function(m){MAP[m.id]=m})}
-function who(id){var m=MAP[id];return m?m.nom:'Membre inconnu'}
-function whoLong(id){var m=MAP[id];return m?m.nom+(m.grade?' · '+m.grade:''):'Membre inconnu'}
+function who(id){var m=MAP[id];return m?m.nom:'Ancien membre'}
+function whoLong(id){var m=MAP[id];return m?m.nom+(m.grade?' · '+m.grade:''):'Ancien membre'}
 function asg(d){return (d.assignes&&d.assignes.length)?d.assignes:(d.assigne_a?[d.assigne_a]:[])}
 function isMine(d){return asg(d).indexOf(ME.id)>=0}
 function names(d,long){var l=asg(d);return l.length?l.map(function(i){return long?whoLong(i):who(i)}).join(long?' ; ':', '):'—'}
@@ -947,7 +949,7 @@ async function viewAdmin(){
   var pend=ms.filter(function(m){return !m.approved}).length;
   return '<div class="wrap page">'+pageHead('Administration','Validez les nouveaux comptes et attribuez les grades. '+(pend?'<b>'+pend+' compte'+(pend>1?'s':'')+' en attente.</b>':'Aucun compte en attente.'))+
   '<div class="tblwrap" style="max-width:none"><table class="vt adm"><thead><tr><th>Nom</th><th>E-mail</th><th>Grade</th><th>Service</th><th>Fonction</th><th>Rôle</th><th>Actif</th><th></th></tr></thead><tbody>'+ms.map(function(m){
-    return '<tr data-id="'+qa(m.id)+'"'+(m.approved?'':' class="pend-row"')+'><td><b>'+esc(m.nom)+'</b></td><td>'+esc(m.email||'')+'</td><td><select data-f="grade">'+opts(GRADES,m.grade)+'</select></td><td><select data-f="service">'+opts(SERVICES,m.service)+'</select></td><td><input data-f="fonction" value="'+qa(m.fonction||'')+'" placeholder="ex. Permanence"></td><td><select data-f="role">'+opts(['membre','admin'],m.role)+'</select></td><td><input type="checkbox" data-f="approved"'+(m.approved?' checked':'')+(m.id===ME.id?' disabled':'')+' aria-label="Compte actif"></td><td><button class="btn small" data-save="'+qa(m.id)+'" type="button">Enregistrer</button></td></tr>'}).join('')+'</tbody></table></div>'+
+    return '<tr data-id="'+qa(m.id)+'"'+(m.approved?'':' class="pend-row"')+'><td><b>'+esc(m.nom)+'</b></td><td>'+esc(m.email||'')+'</td><td><select data-f="grade">'+opts(GRADES,m.grade)+'</select></td><td><select data-f="service">'+opts(SERVICES,m.service)+'</select></td><td><input data-f="fonction" value="'+qa(m.fonction||'')+'" placeholder="ex. Permanence"></td><td><select data-f="role">'+opts(['membre','admin'],m.role)+'</select></td><td><input type="checkbox" data-f="approved"'+(m.approved?' checked':'')+(m.id===ME.id?' disabled':'')+' aria-label="Compte actif"></td><td><button class="btn small" data-save="'+qa(m.id)+'" type="button">Enregistrer</button>'+(m.id===ME.id?'':' <button class="btn small danger" data-rmm="'+qa(m.id)+'" type="button">Supprimer</button>')+'</td></tr>'}).join('')+'</tbody></table></div>'+
   (LIVE?'':'<p class="small" style="margin-top:14px"><a href="#" id="areset">Réinitialiser la démonstration</a></p>')+'</div>';
 }
 function bindAdmin(){
@@ -956,6 +958,11 @@ function bindAdmin(){
     tr.querySelectorAll('[data-f]').forEach(function(x){f[x.getAttribute('data-f')]=x.type==='checkbox'?x.checked:x.value});
     if(id===ME.id){f.approved=true;f.role=f.role}
     try{await API.updateMember(id,f);flash('Membre mis à jour.');route(true)}catch(e){flash(e.message,true)}
+  })});
+  document.querySelectorAll('[data-rmm]').forEach(function(b){b.addEventListener('click',async function(){
+    var id=b.getAttribute('data-rmm'),m=MAP[id]||{};
+    if(!confirm('Supprimer définitivement le compte de '+(m.nom||'ce membre')+' ?\n\nIl ne pourra plus se connecter. Ses messages, ses notes et le journal des dossiers sont conservés (signés « Ancien membre »), et il est retiré des dossiers où il était chargé.'))return;
+    try{await API.deleteMember(id);flash('Compte supprimé.');route(true)}catch(e){flash(e.message,true)}
   })});
   var r=$('#areset');if(r)r.addEventListener('click',function(e){e.preventDefault();if(confirm('Effacer toutes les données de la démonstration ?'))API.reset()});
 }
