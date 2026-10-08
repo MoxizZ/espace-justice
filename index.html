@@ -297,6 +297,8 @@ dl.pen.big{max-width:820px;margin-top:18px}
 .pdel{width:24px;height:24px;border:0;border-radius:50%;background:transparent;color:#98A2B3;font-size:18px;line-height:1;cursor:pointer}
 .pdel:hover{background:#FDECEA;color:#B42318}
 .pdel:focus-visible{outline:2px solid #B42318}
+
+.badge-super{display:inline-block;background:#0B1F4B;color:#E7C46A;border-radius:99px;padding:3px 10px;font-size:12px;font-weight:700;letter-spacing:.04em}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -342,10 +344,12 @@ var GKEYS=['avocat','juge','instruction','procureur','citoyen','chef'];
 /* Salons : [identifiant, nom, services autorisés (null = tous)]. Un administrateur voit tous les salons.
    À modifier ici si besoin ; la même règle est dans setup.sql (fonction can_channel). */
 var CHANNELS=[['general','Justice · tous',null],['parquet','Parquet du Roi',['Parquet du Roi']],['siege','Siège (juges)',['Siège','Greffe']],['instruction','Instruction',['Instruction','Greffe']],['barreau','Barreau (avocats)',['Barreau']]];
+function isAdm(){return !!ME&&(ME.role==='admin'||ME.role==='super')}
+function isSuper(){return !!ME&&ME.role==='super'}
 function canChannel(id){
   if(typeof ME==='undefined'||!ME)return false;
   if(id.indexOf('dm:')===0)return id.indexOf(ME.id)>=0;
-  if(ME.role==='admin')return true;
+  if(isAdm())return true;
   for(var i=0;i<CHANNELS.length;i++)if(CHANNELS[i][0]===id)return !CHANNELS[i][2]||CHANNELS[i][2].indexOf(ME.service)>=0;
   return false;
 }
@@ -516,7 +520,8 @@ if(!LIVE){
   var ST=null;
   function seed(){
     var u=function(nom,grade,service,fonction,role){return {id:uid(),email:nom.toLowerCase().replace(/[^a-z]+/g,'.')+'@demo.local',nom:nom,grade:grade,service:service,fonction:fonction||'',role:role||'membre',approved:true,created_at:nowIso()}};
-    var admin=u('Administrateur (démo)','Juge en chef','Siège','Chef de la juridiction','admin');
+    var admin=u('Administrateur (démo)','Juge en chef','Siège','Chef de la juridiction','super');
+    var adj=u('Administrateur adjoint (démo)','Juge','Siège','Adjoint','admin');
     var proc=u('Procureur du Roi (démo)','Procureur du Roi','Parquet du Roi','');
     var sub=u('Substitut (démo)','Substitut du Procureur','Parquet du Roi','Permanence');
     var ji=u('Juge d’instruction (démo)','Juge d’instruction','Instruction','');
@@ -526,7 +531,7 @@ if(!LIVE){
     var pending={id:uid(),email:'nouveau@demo.local',nom:'Nouveau membre (démo)',grade:'Avocat',service:'Barreau',fonction:'',role:'membre',approved:false,created_at:nowIso()};
     var d1={id:uid(),numero:'2026-0001',titre:'Exemple : vol à main armée (supérette)',statut:'Instruction',juridiction:'Juge d’instruction',parties:'Parquet du Roi c/ X (exemple)',resume:'Dossier d’exemple pour essayer l’espace. Les noms et faits sont fictifs.',assigne_a:ji.id,assignes:[ji.id,proc.id],created_by:proc.id,created_at:nowIso(),updated_at:nowIso()};
     var d2={id:uid(),numero:'2026-0002',titre:'Exemple : contestation d’une amende forfaitaire',statut:'Ouvert',juridiction:'Tribunal de Police',parties:'Citoyen (exemple) c/ Police de Bruxelles',resume:'Deuxième dossier d’exemple.',assigne_a:juge.id,assignes:[juge.id,av.id],created_by:av.id,created_at:nowIso(),updated_at:nowIso()};
-    return {users:[admin,proc,sub,ji,juge,av,bat,pending],messages:[
+    return {users:[admin,adj,proc,sub,ji,juge,av,bat,pending],messages:[
       {id:uid(),channel:'general',sender:admin.id,body:'Bienvenue dans l’espace interne de la Justice. Les Codes, les guides, les documents types, la messagerie et les dossiers sont ici.',files:[],created_at:nowIso()},
       {id:uid(),channel:'parquet',sender:proc.id,body:'Rappel : toute sanction contre un agent de police doit nous être communiquée par écrit sous 48 heures (Code IV, Art. 82).',files:[],created_at:nowIso()}],
       dossiers:[d1,d2],notes:[{id:uid(),dossier_id:d1.id,author:proc.id,body:'Réquisitoire de saisine rédigé. Voir Code III, Art. 30.',files:[],created_at:nowIso()}]};
@@ -542,9 +547,9 @@ if(!LIVE){
     async signUp(email,pw,nom){var p={id:uid(),email:email,nom:nom,grade:'Autre',service:'Autre',fonction:'',role:'membre',approved:false,created_at:nowIso()};ST.users.push(p);save();sessionStorage.setItem('demo_user',p.id);return p},
     async signOut(){sessionStorage.removeItem('demo_user')},
     async members(){return ST.users.slice()},
-    async deleteMember(id){if(id===ME.id)throw new Error('Vous ne pouvez pas vous supprimer vous-même.');ST.users=ST.users.filter(function(x){return x.id!==id});ST.dossiers.forEach(function(d){if(d.assignes)d.assignes=d.assignes.filter(function(x){return x!==id});if(d.assigne_a===id)d.assigne_a=(d.assignes&&d.assignes[0])||null});save()},
-    async updateMember(id,f){var p=ST.users.filter(function(x){return x.id===id})[0];if(p)Object.assign(p,f);save()},
-    async deleteMessage(id){var m=ST.messages.filter(function(x){return x.id===id})[0];if(!m)return;if(m.sender!==ME.id&&ME.role!=='admin')throw new Error('Seul un administrateur peut supprimer le message d’un autre.');ST.messages=ST.messages.filter(function(x){return x.id!==id});save()},
+    async deleteMember(id){if(ME.role!=='super')throw new Error('Seul le super-administrateur peut supprimer un compte.');if(id===ME.id)throw new Error('Vous ne pouvez pas vous supprimer vous-même.');var tg=ST.users.filter(function(x){return x.id===id})[0];if(tg&&tg.role==='super')throw new Error('Ce compte est protégé.');ST.users=ST.users.filter(function(x){return x.id!==id});ST.dossiers.forEach(function(d){if(d.assignes)d.assignes=d.assignes.filter(function(x){return x!==id});if(d.assigne_a===id)d.assigne_a=(d.assignes&&d.assignes[0])||null});save()},
+    async updateMember(id,f){var p=ST.users.filter(function(x){return x.id===id})[0];if(!p)return;if(p.role==='super'&&p.id!==ME.id)throw new Error('Ce compte est protégé : personne d’autre que son titulaire ne peut le modifier.');if('role' in f&&f.role!==p.role){if(f.role==='super'||p.role==='super')throw new Error('Le rôle de super-administrateur ne se change pas depuis le site.');if(ME.role!=='super')throw new Error('Seul le super-administrateur peut changer les rôles.')}Object.assign(p,f);save()},
+    async deleteMessage(id){var m=ST.messages.filter(function(x){return x.id===id})[0];if(!m)return;if(m.sender!==ME.id&&!isAdm())throw new Error('Seul un administrateur peut supprimer le message d’un autre.');var os=ST.users.filter(function(x){return x.id===m.sender})[0];if(os&&os.role==='super'&&ME.role!=='super'&&m.sender!==ME.id)throw new Error('Les messages du super-administrateur sont protégés.');ST.messages=ST.messages.filter(function(x){return x.id!==id});save()},
     async messages(ch){if(!canChannel(ch))return [];return ST.messages.filter(function(m){return m.channel===ch}).sort(function(a,b){return a.created_at<b.created_at?-1:1}).slice(-200)},
     async recent(){return ST.messages.filter(function(m){return canChannel(m.channel)}).slice(-300)},
     async send(ch,body,files){if(!canChannel(ch))throw new Error('Vous n’avez pas accès à ce salon.');ST.messages.push({id:uid(),channel:ch,sender:ME.id,body:body,files:files||[],created_at:nowIso()});save()},
@@ -771,7 +776,7 @@ function chanTitle(ch){
 }
 function msgHtml(m){
   var me=m.sender===ME.id;
-  return '<div class="msg'+(me?' me':'')+'"><div class="mh"><b>'+esc(who(m.sender))+'</b><small>'+esc((MAP[m.sender]||{}).grade||'')+' · '+fdate(m.created_at)+'</small>'+((me||ME.role==='admin')?'<button class="mdel" type="button" data-del="'+qa(m.id)+'" title="Supprimer ce message" aria-label="Supprimer ce message"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v5M14 11v5"/></svg></button>':'')+'</div><div class="mb">'+linkify(esc(m.body||'').replace(/\n/g,'<br>'),null)+'</div>'+fileLinks(m.files)+'</div>';
+  return '<div class="msg'+(me?' me':'')+'"><div class="mh"><b>'+esc(who(m.sender))+'</b><small>'+esc((MAP[m.sender]||{}).grade||'')+' · '+fdate(m.created_at)+'</small>'+(((me||isAdm())&&(me||isSuper()||!(MAP[m.sender]&&MAP[m.sender].role==='super')))?'<button class="mdel" type="button" data-del="'+qa(m.id)+'" title="Supprimer ce message" aria-label="Supprimer ce message"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v5M14 11v5"/></svg></button>':'')+'</div><div class="mb">'+linkify(esc(m.body||'').replace(/\n/g,'<br>'),null)+'</div>'+fileLinks(m.files)+'</div>';
 }
 async function refreshThread(force){
   if(!CUR_CH)return;
@@ -920,10 +925,10 @@ async function viewDossier(id){
   var head='<div class="crumb"><a href="#accueil">Accueil</a> › <a href="#dossiers">Dossiers</a> › '+esc(d.numero)+'</div>';
   if(EDITING)return '<div class="wrap page">'+head+'<div class="ph"><div><h1>Modifier le dossier</h1></div></div>'+dossierForm(d)+'</div>';
   var info='<dl class="pen big"><div><dt>Juridiction</dt><dd>'+esc(d.juridiction||'—')+'</dd></div><div><dt>Chargés du dossier</dt><dd>'+esc(names(d,true))+'</dd></div><div><dt>Parties</dt><dd>'+esc(d.parties||'—')+'</dd></div><div><dt>Ouvert par</dt><dd>'+esc(whoLong(d.created_by))+' · '+fdate(d.created_at)+'</dd></div></dl>';
-  return '<div class="wrap page">'+head+'<div class="ph"><div><div class="dnum">'+esc(d.numero)+'</div><h1>'+esc(d.titre)+'</h1></div><div class="dact"><select id="dst" aria-label="État du dossier">'+opts(STATUTS,d.statut)+'</select><button class="btn ghost" id="ded" type="button">Modifier</button><button class="btn ghost" id="dpdf" type="button">Exporter en PDF</button><button class="btn ghost" id="dhtml" type="button">Télécharger</button>'+(ME.role==='admin'?'<button class="btn danger" id="ddel" type="button">Supprimer</button>':'')+'</div></div>'+
+  return '<div class="wrap page">'+head+'<div class="ph"><div><div class="dnum">'+esc(d.numero)+'</div><h1>'+esc(d.titre)+'</h1></div><div class="dact"><select id="dst" aria-label="État du dossier">'+opts(STATUTS,d.statut)+'</select><button class="btn ghost" id="ded" type="button">Modifier</button><button class="btn ghost" id="dpdf" type="button">Exporter en PDF</button><button class="btn ghost" id="dhtml" type="button">Télécharger</button>'+(isAdm()?'<button class="btn danger" id="ddel" type="button">Supprimer</button>':'')+'</div></div>'+
   (d.statut==='Classé'?'<div class="banner"><b>Dossier classé</b>'+(d.classe_at?' le '+fdate(d.classe_at):'')+(d.motif_classement?' — motif : '+esc(d.motif_classement):'')+'. Pour le rouvrir, changez son état.</div>':'')+
   info+'<section class="block" style="padding-top:20px"><h2 style="font-size:22px">Résumé des faits</h2><p class="res-txt">'+(esc(d.resume||'Aucun résumé.').replace(/\n/g,'<br>'))+'</p></section>'+
-  '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Pièces ('+pieces.length+')</h2>'+(pieces.length?'<div class="mf" style="margin-top:8px">'+pieces.map(function(p){FREG.push(p.f);var i=FREG.length-1;var can=p.by===ME.id||ME.role==='admin'||asg(d).indexOf(ME.id)>=0;var x=can?'<button class="pdel" type="button" data-pn="'+qa(p.nid)+'" data-pi="'+p.idx+'" data-pname="'+qa(p.f.name)+'" title="Retirer cette pièce" aria-label="Retirer la pièce '+qa(p.f.name)+'">×</button>':'';return '<span class="pc">'+(p.f.url&&!p.f.data?'<a class="fchip" href="'+qa(p.f.url)+'" target="_blank" rel="noopener">📄 '+esc(p.f.name)+'</a>':'<a class="fchip" href="#" data-fi="'+i+'">📎 '+esc(p.f.name)+'</a>')+x+'</span>'}).join('')+'</div>':'<p class="sub">Aucune pièce jointe. Ajoutez-en dans une note.</p>')+'</section>'+
+  '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Pièces ('+pieces.length+')</h2>'+(pieces.length?'<div class="mf" style="margin-top:8px">'+pieces.map(function(p){FREG.push(p.f);var i=FREG.length-1;var can=p.by===ME.id||isAdm()||asg(d).indexOf(ME.id)>=0;var x=can?'<button class="pdel" type="button" data-pn="'+qa(p.nid)+'" data-pi="'+p.idx+'" data-pname="'+qa(p.f.name)+'" title="Retirer cette pièce" aria-label="Retirer la pièce '+qa(p.f.name)+'">×</button>':'';return '<span class="pc">'+(p.f.url&&!p.f.data?'<a class="fchip" href="'+qa(p.f.url)+'" target="_blank" rel="noopener">📄 '+esc(p.f.name)+'</a>':'<a class="fchip" href="#" data-fi="'+i+'">📎 '+esc(p.f.name)+'</a>')+x+'</span>'}).join('')+'</div>':'<p class="sub">Aucune pièce jointe. Ajoutez-en dans une note.</p>')+'</section>'+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Notes et suivi</h2><div class="notes">'+(notes.filter(function(n){return n.body||(n.files&&n.files.length)}).map(function(n){return '<div class="msg"><div class="mh"><b>'+esc(who(n.author))+'</b><small>'+esc((MAP[n.author]||{}).grade||'')+' · '+fdate(n.created_at)+'</small></div><div class="mb">'+linkify(esc(n.body||'').replace(/\n/g,'<br>'),null)+'</div>'+fileLinks(n.files)+'</div>'}).join('')||'<p class="sub">Aucune note pour l’instant.</p>')+'</div>'+
   '<form id="nf" class="comp" style="margin-top:12px"><div id="npend" class="pend"></div><textarea id="nt" rows="3" placeholder="Ajouter une note, un acte, une décision…" aria-label="Nouvelle note"></textarea><div class="comprow"><label class="btn ghost small">📎 Joindre un fichier<input id="nfile" type="file" multiple hidden></label><button class="btn" type="submit">Ajouter la note</button></div></form></section>'+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Journal des modifications</h2><p class="sub">Chaque changement est inscrit ici automatiquement, avec son auteur et la date. Le journal ne peut être ni modifié ni effacé.</p><ol class="jrn">'+(hist.map(function(l){return '<li><time>'+fdate(l.created_at)+'</time><span><b>'+esc(who(l.author))+'</b> — '+esc(l.action)+'</span></li>'}).join('')||'<li><span>Aucune entrée.</span></li>')+'</ol></section></div>';
@@ -984,13 +989,14 @@ async function buildExport(d,notes,hist){
 
 /* ===================== ADMINISTRATION ===================== */
 async function viewAdmin(){
-  if(ME.role!=='admin')return '<div class="wrap page">'+pageHead('Accès refusé','Cette page est réservée aux administrateurs.')+'</div>';
+  if(!isAdm())return '<div class="wrap page">'+pageHead('Accès refusé','Cette page est réservée aux administrateurs.')+'</div>';
   await loadMembers();
   var ms=MEMBERS.slice().sort(function(a,b){return (a.approved?1:0)-(b.approved?1:0)||a.nom.localeCompare(b.nom)});
   var pend=ms.filter(function(m){return !m.approved}).length;
-  return '<div class="wrap page">'+pageHead('Administration','Validez les nouveaux comptes et attribuez les grades. '+(pend?'<b>'+pend+' compte'+(pend>1?'s':'')+' en attente.</b>':'Aucun compte en attente.'))+
+  return '<div class="wrap page">'+pageHead('Administration','Validez les nouveaux comptes et attribuez les grades. '+(isSuper()?'Vous êtes super-administrateur : vous seul changez les rôles et supprimez des comptes. ':'Les rôles et les suppressions de comptes sont réservés au super-administrateur. ')+(pend?'<b>'+pend+' compte'+(pend>1?'s':'')+' en attente.</b>':'Aucun compte en attente.'))+
   '<div class="tblwrap" style="max-width:none"><table class="vt adm"><thead><tr><th>Nom</th><th>E-mail</th><th>Grade</th><th>Service</th><th>Fonction</th><th>Rôle</th><th>Actif</th><th></th></tr></thead><tbody>'+ms.map(function(m){
-    return '<tr data-id="'+qa(m.id)+'"'+(m.approved?'':' class="pend-row"')+'><td><b>'+esc(m.nom)+'</b></td><td>'+esc(m.email||'')+'</td><td><select data-f="grade">'+opts(GRADES,m.grade)+'</select></td><td><select data-f="service">'+opts(SERVICES,m.service)+'</select></td><td><input data-f="fonction" value="'+qa(m.fonction||'')+'" placeholder="ex. Permanence"></td><td><select data-f="role">'+opts(['membre','admin'],m.role)+'</select></td><td><input type="checkbox" data-f="approved"'+(m.approved?' checked':'')+(m.id===ME.id?' disabled':'')+' aria-label="Compte actif"></td><td><button class="btn small" data-save="'+qa(m.id)+'" type="button">Enregistrer</button>'+(m.id===ME.id?'':' <button class="btn small danger" data-rmm="'+qa(m.id)+'" type="button">Supprimer</button>')+'</td></tr>'}).join('')+'</tbody></table></div>'+
+    var locked=m.role==='super'&&m.id!==ME.id;
+    return '<tr data-id="'+qa(m.id)+'"'+(m.approved?'':' class="pend-row"')+'><td><b>'+esc(m.nom)+'</b></td><td>'+esc(m.email||'')+'</td><td><select data-f="grade"'+(locked?' disabled':'')+'>'+opts(GRADES,m.grade)+'</select></td><td><select data-f="service"'+(locked?' disabled':'')+'>'+opts(SERVICES,m.service)+'</select></td><td><input data-f="fonction"'+(locked?' disabled':'')+' value="'+qa(m.fonction||'')+'" placeholder="ex. Permanence"></td><td>'+(m.role==='super'?'<span class="badge-super">Super-admin</span>':'<select data-f="role"'+(isSuper()?'':' disabled title="Seul le super-administrateur change les rôles"')+'>'+opts(['membre','admin'],m.role)+'</select>')+'</td><td><input type="checkbox" data-f="approved"'+(m.approved?' checked':'')+((m.id===ME.id||m.role==='super')?' disabled':'')+' aria-label="Compte actif"></td><td>'+(locked?'<small>🔒 Compte protégé</small>':'<button class="btn small" data-save="'+qa(m.id)+'" type="button">Enregistrer</button>'+((isSuper()&&m.id!==ME.id)?' <button class="btn small danger" data-rmm="'+qa(m.id)+'" type="button">Supprimer</button>':''))+'</td></tr>'}).join('')+'</tbody></table></div>'+
   (LIVE?'':'<p class="small" style="margin-top:14px"><a href="#" id="areset">Réinitialiser la démonstration</a></p>')+'</div>';
 }
 function bindAdmin(){
@@ -1012,7 +1018,7 @@ function bindAdmin(){
 function navHtml(cur){
   var sec=cur.split('-')[0];
   var items=[['accueil','Accueil'],['messages','Messagerie'],['dossiers','Dossiers'],['annuaire','Annuaire'],['codes','Codes'],['guides','Guides'],['documents','Documents']];
-  if(ME&&ME.role==='admin')items.push(['admin','Administration']);
+  if(isAdm())items.push(['admin','Administration']);
   var group=/^c[1-8]$/.test(sec)?'codes':sec==='g'?'guides':sec==='dossier'||sec==='nouveau'?'dossiers':sec==='recherche'?'accueil':sec;
   $('#nav').innerHTML=ME?items.map(function(n){return '<a href="#'+n[0]+'"'+(n[0]===group?' aria-current="page"':'')+'>'+n[1]+'</a>'}).join('')+'<button class="theme" id="lo" type="button">Déconnexion</button>':'';
   var lo=$('#lo');if(lo)lo.addEventListener('click',logout);
