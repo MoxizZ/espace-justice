@@ -799,7 +799,7 @@ function whoLong(id){var m=MAP[id];return m?m.nom+(m.grade?' · '+m.grade:''):'A
 function asg(d){return (d.assignes&&d.assignes.length)?d.assignes:(d.assigne_a?[d.assigne_a]:[])}
 function isMine(d){return asg(d).indexOf(ME.id)>=0}
 function indiv(d){var n=(d.ind_nom||'').trim(),p=(d.ind_prenom||'').trim();return n||p?(n.toUpperCase()+(p?' '+p:'')).trim():''}
-function indivKey(d){return norm((d.ind_nom||'').trim()+' '+(d.ind_prenom||'').trim())}
+function indivKey(d){return norm((d.ind_nom||'').trim()+' '+(d.ind_prenom||'').trim()).trim()}
 function names(d,long){var l=asg(d);return l.length?l.map(function(i){return long?whoLong(i):who(i)}).join(long?' ; ':', '):'—'}
 function approved(){return MEMBERS.filter(function(m){return m.approved})}
 var FREG=[];
@@ -1376,10 +1376,15 @@ async function adminExtras(){
   var ind={};ds.forEach(function(d){var k=indivKey(d);if(!k)return;if(!ind[k])ind[k]={n:d.ind_nom||'',p:d.ind_prenom||'',c:0};ind[k].c++});
   var ik=Object.keys(ind).sort();
   h+='<h2 style="font-size:22px;margin:30px 0 8px">Individus des dossiers</h2><p class="sub">Changement de nom, faute de frappe : corrigez ici et tous les dossiers de la personne (en cours et classés) sont mis à jour. Si le nouveau nom existe déjà, les dossiers sont regroupés.</p>'+(ik.length?'<div class="indadm">'+ik.map(function(k){var o=ind[k];return '<form class="inl indrow" data-ik="'+qa(k)+'"><input class="in_n" value="'+qa(o.n)+'" required aria-label="Nom" placeholder="Nom"><input class="in_p" value="'+qa(o.p)+'" required aria-label="Prénom" placeholder="Prénom"><small>'+o.c+' dossier'+(o.c>1?'s':'')+'</small><button class="btn small" type="submit">Renommer</button></form>'}).join('')+'</div>':'<p class="sub">Aucun individu enregistré.</p>');
+  var sans=ds.filter(function(d){return !indivKey(d)});
+  if(sans.length)h+='<h3 style="margin:18px 0 6px">Dossiers sans individu ('+sans.length+')</h3><p class="sub">Ces dossiers ont été créés avant l’ajout du nom et du prénom. Renseignez-les ici.</p><div class="indadm">'+sans.map(function(d){return '<form class="inl indnew" data-did="'+qa(d.id)+'"><small style="min-width:210px"><b>'+esc(d.numero)+'</b> · '+esc(d.titre)+'</small><input class="in_n" required aria-label="Nom" placeholder="Nom"><input class="in_p" required aria-label="Prénom" placeholder="Prénom"><button class="btn small" type="submit">Enregistrer</button></form>'}).join('')+'</div>';
   if(isSuper())h+='<h2 style="font-size:22px;margin:30px 0 8px">Sauvegarde</h2><p class="sub">Télécharge toutes les données du site (membres, dossiers, notes, journaux, échéances, répertoire, annonces, messages des salons) dans un fichier. À faire de temps en temps.</p><button class="btn" id="bk" type="button">Télécharger la sauvegarde</button>';
   return h;
 }
 function bindAdminExtras(){
+  document.querySelectorAll('.indnew').forEach(function(f){f.addEventListener('submit',async function(e){
+    e.preventDefault();var id=f.getAttribute('data-did'),n=f.querySelector('.in_n').value.trim(),p=f.querySelector('.in_p').value.trim();if(!n||!p)return;
+    try{await API.upd('dossiers',id,{ind_nom:n,ind_prenom:p});await API.log(id,'Individu renseigné : '+n.toUpperCase()+' '+p);flash('Individu enregistré.');route(true)}catch(err){flash(err.message,true)}})});
   document.querySelectorAll('.indrow').forEach(function(f){f.addEventListener('submit',async function(e){
     e.preventDefault();var k=f.getAttribute('data-ik'),n=f.querySelector('.in_n').value.trim(),p=f.querySelector('.in_p').value.trim();if(!n||!p)return;
     try{var ds=(await API.dossiers()).filter(function(d){return indivKey(d)===k});
