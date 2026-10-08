@@ -1187,9 +1187,9 @@ async function viewDossier(id){
   notes.forEach(function(n){if(n.body||(n.files&&n.files.length))ev.push({at:n.created_at,by:n.author,ic:'📝',h:'<div class="mb">'+linkify(esc(n.body||'').replace(/\n/g,'<br>'),null)+'</div>'+fileLinks(n.files)})});
   hist.forEach(function(l){if(/^Note ajoutée/.test(l.action))return;ev.push({at:l.created_at,by:l.author,ic:icLog(l.action),h:'<div class="mb">'+esc(l.action)+'</div>'})});
   ev.sort(function(x,y){return x.at<y.at?1:-1});
-  var tl='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Chronologie du dossier</h2>'+
+  var tl='<section class="block" style="padding-top:8px"><h2 style="font-size:34px;margin-bottom:14px">Informations du dossier</h2>'+
     '<form id="nf" class="comp" style="margin-bottom:14px"><div id="npend" class="pend"></div><textarea id="nt" rows="3" placeholder="Ajouter une note, un acte, une décision…" aria-label="Nouvelle note"></textarea><div class="comprow"><label class="btn ghost small">📎 Joindre un fichier<input id="nfile" type="file" multiple hidden></label><button class="btn" type="submit">Ajouter à la chronologie</button></div></form>'+
-    '<div class="htl" id="htl"><ol class="htl-r">'+
+    '<h3 class="tlh">Chronologie</h3><div class="htl" id="htl"><ol class="htl-r">'+
     ev.slice().reverse().map(function(x){return '<li><span class="ti">'+x.ic+'</span><div class="hc"><time>'+fdate(x.at)+' · '+esc(who(x.by))+'</time>'+x.h+'</div></li>'}).join('')+
     '<li class="now" id="htlnow"><span class="ti">●</span><div class="hc"><b>Aujourd’hui</b></div></li>'+
     ups.map(function(e){var late=new Date(e.date_heure).getTime()<now;return '<li class="up'+(late?' late':'')+'"><span class="ti">📅</span><div class="hc"><time>'+fday(e.date_heure)+' à '+ftime(e.date_heure)+'</time><div class="mb"><b>'+esc(e.type)+'</b>'+(e.note?' — '+esc(e.note):'')+'<br><em>'+reste(e.date_heure)+'</em></div></div></li>'}).join('')+
