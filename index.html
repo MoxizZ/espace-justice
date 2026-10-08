@@ -389,6 +389,17 @@ dl.pen.big{max-width:820px;margin-top:18px}
 .dts>summary{cursor:pointer;padding:11px 0;font-weight:700;font-size:15px;color:#0B1F4B;list-style:none}
 .dts>summary::-webkit-details-marker{display:none}.dts>summary::before{content:"▸ ";color:#C9A227}.dts[open]>summary::before{content:"▾ "}
 .dts[open]{padding-bottom:12px}.dts .ech li{padding:5px 0}
+
+.mlist{display:grid;gap:12px;margin-top:6px}
+.mrow{background:#fff;border:1px solid #D8DDE6;border-radius:10px;padding:14px}.mrow.pend-row{background:#FFF8E1;border-color:#C9A227}
+.mtop{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.mtop .nomin{flex:1 1 240px;min-width:0;font-size:16px;font-weight:700;padding:8px 10px;border:1px solid #cbd3df;border-radius:8px;background:#fff;color:var(--ink)}
+.mem{color:#5b6677;font-size:13px;word-break:break-all}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px}
+.mgrid label{display:flex;flex-direction:column;gap:4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#5b6677}
+.mgrid select,.mgrid input[data-f=fonction]{width:100%;max-width:none;min-width:0;font:inherit;font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink);padding:8px;border:1px solid #cbd3df;border-radius:8px;background:#fff}
+.mgrid .mact{flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink)}
+.mbtn{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -1395,17 +1406,22 @@ async function viewAdmin(){
   var ms=MEMBERS.slice().sort(function(a,b){return (a.approved?1:0)-(b.approved?1:0)||a.nom.localeCompare(b.nom)});
   var pend=ms.filter(function(m){return !m.approved}).length;
   return '<div class="wrap page">'+pageHead('Administration','Validez les nouveaux comptes et attribuez les grades. '+(isSuper()?'Vous êtes super-administrateur : vous seul changez les rôles et supprimez des comptes. ':'Les rôles et les suppressions de comptes sont réservés au super-administrateur. ')+(pend?'<b>'+pend+' compte'+(pend>1?'s':'')+' en attente.</b>':'Aucun compte en attente.'))+
-  '<div class="tblwrap" style="max-width:none"><table class="vt adm"><thead><tr><th>Nom</th><th>E-mail</th><th>Grade</th><th>Service</th><th>Fonction</th><th>Rôle</th><th>Actif</th><th></th></tr></thead><tbody>'+ms.map(function(m){
-    var locked=m.role==='super'&&m.id!==ME.id;
-    return '<tr data-id="'+qa(m.id)+'"'+(m.approved?'':' class="pend-row"')+'><td><input data-f="nom" class="nomin"'+(locked?' disabled':'')+' value="'+qa(m.nom||'')+'" aria-label="Nom RP" required></td><td>'+esc(m.email||'')+'</td><td><select data-f="grade"'+(locked?' disabled':'')+'>'+opts(GRADES,m.grade)+'</select></td><td><select data-f="service"'+(locked?' disabled':'')+'>'+opts(SERVICES,m.service)+'</select></td><td><input data-f="fonction"'+(locked?' disabled':'')+' value="'+qa(m.fonction||'')+'" placeholder="ex. Permanence"></td><td>'+(m.role==='super'?'<span class="badge-super">Super-admin</span>':'<select data-f="role"'+(isSuper()?'':' disabled title="Seul le super-administrateur change les rôles"')+'>'+opts(['membre','admin'],m.role)+'</select>')+'</td><td><input type="checkbox" data-f="approved"'+(m.approved?' checked':'')+((m.id===ME.id||m.role==='super')?' disabled':'')+' aria-label="Compte actif"></td><td>'+(locked?'<small>🔒 Compte protégé</small>':'<button class="btn small" data-save="'+qa(m.id)+'" type="button">Enregistrer</button>'+((isSuper()&&m.id!==ME.id)?' <button class="btn small danger" data-rmm="'+qa(m.id)+'" type="button">Supprimer</button>':''))+'</td></tr>'}).join('')+'</tbody></table></div>'+
+  '<div class="mlist">'+ms.map(function(m){
+    var locked=m.role==='super'&&m.id!==ME.id,dis=locked?' disabled':'';
+    return '<div class="mrow'+(m.approved?'':' pend-row')+'" data-id="'+qa(m.id)+'"><div class="mtop"><input data-f="nom" class="nomin"'+dis+' value="'+qa(m.nom||'')+'" aria-label="Nom RP" required><span class="mem">'+esc(m.email||'')+'</span>'+(m.role==='super'?'<span class="badge-super">Super-admin</span>':'')+(m.approved?'':'<span class="badge">En attente</span>')+'</div>'+
+    '<div class="mgrid"><label>Grade<select data-f="grade"'+dis+'>'+opts(GRADES,m.grade)+'</select></label><label>Service<select data-f="service"'+dis+'>'+opts(SERVICES,m.service)+'</select></label><label>Fonction<input data-f="fonction"'+dis+' value="'+qa(m.fonction||'')+'" placeholder="ex. Permanence"></label>'+
+    (m.role==='super'?'':'<label>Rôle<select data-f="role"'+(isSuper()?'':' disabled title="Seul le super-administrateur change les rôles"')+'>'+opts(['membre','admin'],m.role)+'</select></label>')+
+    '<label class="mact"><input type="checkbox" data-f="approved"'+(m.approved?' checked':'')+((m.id===ME.id||m.role==='super')?' disabled':'')+' aria-label="Compte actif"> Compte actif</label></div>'+
+    '<div class="mbtn">'+(locked?'<small>🔒 Compte protégé</small>':'<button class="btn small" data-save="'+qa(m.id)+'" type="button">Enregistrer</button>'+((isSuper()&&m.id!==ME.id)?'<button class="btn small danger" data-rmm="'+qa(m.id)+'" type="button">Supprimer</button>':''))+'</div></div>'}).join('')+'</div>'+
   (await adminExtras())+(LIVE?'':'<p class="small" style="margin-top:14px"><a href="#" id="areset">Réinitialiser la démonstration</a></p>')+'</div>';
 }
 function bindAdmin(){
   bindAdminExtras();
   document.querySelectorAll('[data-save]').forEach(function(b){b.addEventListener('click',async function(){
-    var tr=b.closest('tr'),id=b.getAttribute('data-save'),f={};
+    var tr=b.closest('.mrow'),id=b.getAttribute('data-save'),f={};
     tr.querySelectorAll('[data-f]').forEach(function(x){f[x.getAttribute('data-f')]=x.type==='checkbox'?x.checked:x.value});
-    if(id===ME.id){f.approved=true;f.role=f.role}
+    if(id===ME.id)f.approved=true;
+    if(f.role===undefined)delete f.role;
     if('nom' in f){f.nom=f.nom.trim();if(!f.nom){flash('Le nom ne peut pas être vide.',true);return}}
     try{await API.updateMember(id,f);flash('Membre mis à jour.');route(true)}catch(e){flash(e.message,true)}
   })});
