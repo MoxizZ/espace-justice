@@ -334,6 +334,17 @@ dl.pen.big{max-width:820px;margin-top:18px}
 .brow b{text-align:right}
 @media (max-width:600px){.brow{grid-template-columns:100px 1fr 24px}}
 .indgrp{margin:22px 0 6px}.indh{font-size:20px;margin:0 0 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.indh .badge{font-size:13px;font-weight:600;background:#EEF1F6;color:#334;border-radius:999px;padding:2px 10px}
+.edmod{position:fixed;inset:0;background:rgba(10,20,45,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.edbox{background:#fff;border-radius:12px;max-width:820px;width:100%;max-height:92vh;display:flex;flex-direction:column;padding:18px 20px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.edbox header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}.edbox header b{font-size:18px}
+.edtop{display:flex;align-items:center;gap:12px;margin:6px 0}
+.edlist{overflow:auto;flex:1;border:1px solid #D9DEE8;border-radius:8px;padding:10px;background:#FAFBFD;display:flex;flex-direction:column;gap:6px;min-height:200px}
+.edl{width:100%;box-sizing:border-box;border:1px solid transparent;background:#fff;border-radius:6px;padding:6px 8px;font:inherit;font-size:14px;line-height:1.45;resize:none;overflow:hidden}
+.edl:focus{outline:2px solid #C9A227;border-color:#C9A227}.edl.need{background:#FFF8D6;border-color:#E6CF6A}
+.edbar{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
+#ednote{margin-top:10px}
+.fchip.edt{cursor:pointer;background:#FFF8D6;border:1px solid #E6CF6A;color:#5a4500;font:inherit;font-size:12px;margin-left:4px}
+.indadm{display:flex;flex-direction:column;gap:8px;margin-top:8px}.indrow input{flex:1;min-width:120px}.indrow small{color:#667}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -775,8 +786,9 @@ var FREG=[];
 function fileLinks(fs){
   if(!fs||!fs.length)return '';
   return '<div class="mf">'+fs.map(function(f){
-    if(f.url&&!f.data)return '<a class="fchip" href="'+qa(f.url)+'" target="_blank" rel="noopener">📄 '+esc(f.name)+'</a>';
-    FREG.push(f);return '<a class="fchip" href="#" data-fi="'+(FREG.length-1)+'">📎 '+esc(f.name)+(f.size?' <small>'+fsize(f.size)+'</small>':'')+'</a>';
+    var isD=/\.docx\)?$/i.test(f.name);
+    if(f.url&&!f.data){FREG.push(f);return '<a class="fchip" href="'+qa(f.url)+'" target="_blank" rel="noopener">📄 '+esc(f.name)+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')}
+    FREG.push(f);return '<a class="fchip" href="#" data-fi="'+(FREG.length-1)+'">📎 '+esc(f.name)+(f.size?' <small>'+fsize(f.size)+'</small>':'')+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'');
   }).join('')+'</div>';
 }
 var DOCDATA=null;
@@ -803,6 +815,7 @@ document.addEventListener('click',function(e){
   e.preventDefault();var u=a.getAttribute('href');openFile(u,decodeURIComponent(u.split('/').pop()));
 });
 function bindFiles(root){
+  (root||document).querySelectorAll('[data-fe]').forEach(function(b){b.addEventListener('click',function(){editFile(FREG[+b.getAttribute('data-fe')])})});
   (root||document).querySelectorAll('[data-fi]').forEach(function(a){a.addEventListener('click',async function(e){
     e.preventDefault();var f=FREG[+a.getAttribute('data-fi')];
     try{
@@ -974,7 +987,8 @@ function bindMessages(){
     var fs=Array.prototype.slice.call(e.target.files);e.target.value='';
     for(var i=0;i<fs.length;i++){try{var f=await API.upload(fs[i]);PEND.push(f);draw()}catch(err){flash(err.message,true)}}
   });
-  $('#dsel').addEventListener('change',function(e){var i=e.target.value;if(i!==''){var d=DOCS[+i];(docHas(d.docx)?Promise.resolve({ok:true}):fetch(d.docx,{method:'HEAD'})).then(function(r){if(!r.ok)throw 0;PEND.push({name:d.title+' (.docx)',url:d.docx});draw()}).catch(function(){alert('Ce document est introuvable sur le site (404) : le dossier « documents » n’a pas été envoyé en entier sur GitHub. Voir le LISEZMOI, étape 3.')})}e.target.value=''});
+  window.REDRAWPEND=draw;
+  $('#dsel').addEventListener('change',function(e){var i=e.target.value;e.target.value='';if(i==='')return;var d=DOCS[+i];openTemplateEditor(d)});
   var send=async function(){
     var body=ta.value.trim();if(!body&&!PEND.length)return;
     var btn=form.querySelector('button[type=submit]');btn.disabled=true;
@@ -1338,12 +1352,123 @@ async function adminExtras(){
   var bars=function(o,max){var ks=Object.keys(o);var mx=Math.max.apply(null,ks.map(function(k){return o[k]}).concat([1]));return ks.length?ks.map(function(k){return '<div class="brow"><span>'+esc(k)+'</span><i style="width:'+Math.round(100*o[k]/mx)+'%"></i><b>'+o[k]+'</b></div>'}).join(''):'<p class="sub">Aucune donnée.</p>'};
   var months=function(f){var o={};var now=new Date();for(var i=5;i>=0;i--){var d=new Date(now.getFullYear(),now.getMonth()-i,1);o[d.getFullYear()+'-'+p2(d.getMonth()+1)]=0}ds.forEach(function(x){var v=f(x);if(v){var k=v.slice(0,7);if(k in o)o[k]++}});return o};
   var h='<h2 style="font-size:22px;margin:30px 0 8px">Statistiques</h2><p class="sub">'+ds.length+' dossier'+(ds.length>1?'s':'')+' au total.</p><div class="stats"><div><h3>Par état</h3>'+bars(cnt(function(d){return d.statut}))+'</div><div><h3>Par juridiction</h3>'+bars(cnt(function(d){return d.juridiction}))+'</div><div><h3>Ouverts par mois</h3>'+bars(months(function(d){return d.created_at}))+'</div><div><h3>Classés par mois</h3>'+bars(months(function(d){return d.statut==='Classé'?d.classe_at:null}))+'</div></div>';
+  var ind={};ds.forEach(function(d){var k=indivKey(d);if(!k)return;if(!ind[k])ind[k]={n:d.ind_nom||'',p:d.ind_prenom||'',c:0};ind[k].c++});
+  var ik=Object.keys(ind).sort();
+  h+='<h2 style="font-size:22px;margin:30px 0 8px">Individus des dossiers</h2><p class="sub">Changement de nom, faute de frappe : corrigez ici et tous les dossiers de la personne (en cours et classés) sont mis à jour. Si le nouveau nom existe déjà, les dossiers sont regroupés.</p>'+(ik.length?'<div class="indadm">'+ik.map(function(k){var o=ind[k];return '<form class="inl indrow" data-ik="'+qa(k)+'"><input class="in_n" value="'+qa(o.n)+'" required aria-label="Nom" placeholder="Nom"><input class="in_p" value="'+qa(o.p)+'" required aria-label="Prénom" placeholder="Prénom"><small>'+o.c+' dossier'+(o.c>1?'s':'')+'</small><button class="btn small" type="submit">Renommer</button></form>'}).join('')+'</div>':'<p class="sub">Aucun individu enregistré.</p>');
   if(isSuper())h+='<h2 style="font-size:22px;margin:30px 0 8px">Sauvegarde</h2><p class="sub">Télécharge toutes les données du site (membres, dossiers, notes, journaux, échéances, répertoire, annonces, messages des salons) dans un fichier. À faire de temps en temps.</p><button class="btn" id="bk" type="button">Télécharger la sauvegarde</button>';
   return h;
 }
 function bindAdminExtras(){
+  document.querySelectorAll('.indrow').forEach(function(f){f.addEventListener('submit',async function(e){
+    e.preventDefault();var k=f.getAttribute('data-ik'),n=f.querySelector('.in_n').value.trim(),p=f.querySelector('.in_p').value.trim();if(!n||!p)return;
+    try{var ds=(await API.dossiers()).filter(function(d){return indivKey(d)===k});
+      if(!ds.length)throw new Error('Aucun dossier trouvé.');
+      if(!confirm('Renommer en « '+n.toUpperCase()+' '+p+' » ('+ds.length+' dossier'+(ds.length>1?'s':'')+') ?'))return;
+      for(var i=0;i<ds.length;i++){var o=indiv(ds[i]);await API.upd('dossiers',ds[i].id,{ind_nom:n,ind_prenom:p});await API.log(ds[i].id,'Individu renommé : «\u00a0'+o+'\u00a0» → «\u00a0'+n.toUpperCase()+' '+p+'\u00a0»')}
+      flash('Nom mis à jour.');route(true)}catch(err){flash(err.message,true)}})});
   var b=$('#bk');if(b)b.addEventListener('click',async function(){try{var o=await API.backup(),bl=new Blob([JSON.stringify(o,null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='Sauvegarde_Justice_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();flash('Sauvegarde téléchargée.')}catch(e){flash(e.message,true)}});
 }
+
+/* ---------- Éditeur de document : compléter, signer, envoyer ---------- */
+var W_NS='http://schemas.openxmlformats.org/wordprocessingml/2006/main',XML_NS='http://www.w3.org/XML/1998/namespace';
+function wOwn(p){var out=[];(function walk(n){for(var c=n.firstChild;c;c=c.nextSibling){if(c.nodeType!==1)continue;if(c.namespaceURI===W_NS){var l=c.localName;if(l==='p'||l==='pPr')continue;if(l==='t'||l==='tab'||l==='br'||l==='cr'){out.push(c);continue}}walk(c)}})(p);return out}
+function wText(p){return wOwn(p).map(function(n){var l=n.localName;return l==='t'?n.textContent:l==='tab'?'\t':'\n'}).join('')}
+function wSet(xd,p,text){
+  var ns=wOwn(p),first=null;
+  for(var i=0;i<ns.length;i++){if(ns[i].localName==='t'&&!first)first=ns[i]}
+  var run=first?first.parentNode:null;
+  if(!run){for(var c=p.firstChild;c;c=c.nextSibling){if(c.nodeType===1&&c.namespaceURI===W_NS&&c.localName==='r'){run=c;break}}}
+  if(!run){run=xd.createElementNS(W_NS,'w:r');p.appendChild(run)}
+  ns.forEach(function(n){n.parentNode.removeChild(n)});
+  text.split(/(\t|\n)/).forEach(function(s){
+    if(s==='')return;
+    if(s==='\t')run.appendChild(xd.createElementNS(W_NS,'w:tab'));
+    else if(s==='\n')run.appendChild(xd.createElementNS(W_NS,'w:br'));
+    else{var t=xd.createElementNS(W_NS,'w:t');t.setAttributeNS(XML_NS,'xml:space','preserve');t.textContent=s;run.appendChild(t)}
+  });
+}
+function edCtx(){
+  var h=location.hash;
+  if(/^#messages/.test(h)&&typeof CUR_CH!=='undefined')return 'msg';
+  if(/^#dossier-/.test(h))return 'dos';
+  return '';
+}
+async function editFile(f){
+  try{
+    var bl;
+    if(f.url&&docHas(f.url))bl=docBlob(f.url);
+    else{var u=await API.fileUrl(f);var r=await fetch(u);if(!r.ok)throw new Error('fichier introuvable ('+r.status+')');bl=await r.blob()}
+    var nm=String(f.name).replace(/\s*\(\.docx\)$/i,'').replace(/\.docx$/i,'').replace(/_complete$/,'');
+    openEditor(bl,nm+(/^(signé|complété)/i.test(nm)?'':'')+'_complete.docx',f.name);
+  }catch(err){alert('Impossible d’ouvrir le document : '+err.message)}
+}
+function openTemplateEditor(d){
+  var bl=docBlob(d.docx);if(!bl){alert('Ce modèle est introuvable sur le site.');return}
+  openEditor(bl,(d.ref+'_'+d.title).replace(/[^\wÀ-ÿ\-]+/g,'_')+'.docx',d.ref+' · '+d.title);
+}
+async function openEditor(blob,outName,title){
+  var zip=await JSZip.loadAsync(blob),xml=await zip.file('word/document.xml').async('string');
+  var xd=new DOMParser().parseFromString(xml,'application/xml');
+  if(xd.getElementsByTagName('parsererror').length)throw new Error('Document illisible.');
+  var t=new Date(),dd=p2(t.getDate())+' / '+p2(t.getMonth()+1)+' / '+t.getFullYear(),hm=p2(t.getHours())+'h'+p2(t.getMinutes());
+  var items=[];wParas0(xd).forEach(function(p){var tx=wText(p);if(tx.trim()!=='')items.push({p:p,orig:tx})});
+  var pre=function(s){return s.replace(/(Date\s*:\s*)_+\s*\/\s*_+\s*\/\s*_+/,'$1'+dd).replace(/Fait à _+, le _+\s*\/\s*_+\s*\/\s*_+/,'Fait à Bruxelles, le '+dd)};
+  var ctx=edCtx();
+  var old=document.querySelector('.edmod');if(old)old.remove();
+  var m=document.createElement('div');m.className='edmod';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');
+  m.innerHTML='<div class="edbox"><header><b>'+esc(title)+'</b><button class="pdel" type="button" data-edx aria-label="Fermer">×</button></header>'+
+   '<p class="sub">Modifiez le texte directement. Les lignes en jaune contiennent un champ à compléter (_____). Le bouton « Signer » ajoute votre signature et la date.</p>'+
+   '<div class="edtop"><button class="btn small" type="button" data-sig>✍ Signer</button><span class="sub" id="edcount"></span></div>'+
+   '<div class="edlist">'+items.map(function(it,i){return '<textarea class="edl" data-i="'+i+'" rows="1" aria-label="Ligne '+(i+1)+'">'+esc(pre(it.orig))+'</textarea>'}).join('')+'</div>'+
+   (ctx==='msg'?'<input id="ednote" class="filter" placeholder="Message d’accompagnement (facultatif)" aria-label="Message d’accompagnement">':'')+
+   '<div class="edbar"><button class="btn ghost" type="button" data-edx>Annuler</button><button class="btn ghost" type="button" data-eddl>Télécharger</button>'+
+   (ctx==='msg'?'<button class="btn ghost" type="button" data-edat>Joindre au message</button><button class="btn" type="button" data-edsend>Envoyer</button>':'')+
+   (ctx==='dos'?'<button class="btn" type="button" data-eddos>Joindre au dossier</button>':'')+'</div></div>';
+  document.body.appendChild(m);document.body.style.overflow='hidden';
+  var list=m.querySelector('.edlist');
+  var grow=function(ta){ta.style.height='auto';ta.style.height=(ta.scrollHeight+2)+'px'};
+  var count=function(){var n=0;list.querySelectorAll('textarea').forEach(function(ta){var need=/_{3,}/.test(ta.value);ta.classList.toggle('need',need);if(need)n++});m.querySelector('#edcount').textContent=n?n+' ligne'+(n>1?'s':'')+' à compléter':'Aucun champ vide.'};
+  list.querySelectorAll('textarea').forEach(function(ta){grow(ta);ta.addEventListener('input',function(){grow(ta);count()})});count();
+  var close=function(){m.remove();document.body.style.overflow=''};
+  m.querySelectorAll('[data-edx]').forEach(function(b){b.addEventListener('click',close)});
+  m.addEventListener('keydown',function(e){if(e.key==='Escape')close()});
+  var sigTxt='Signé par '+ME.nom+(ME.grade?', '+ME.grade:'')+', le '+dd+' à '+hm;
+  m.querySelector('[data-sig]').addEventListener('click',function(){
+    var tas=Array.prototype.slice.call(list.querySelectorAll('textarea')),tg=null;
+    tas.forEach(function(ta){if(!tg&&/signature/i.test(ta.value))tg=ta});
+    if(tg){tg.value=/_{3,}/.test(tg.value)?tg.value.replace(/_+/,sigTxt):tg.value.replace(/\s+$/,'')+' '+sigTxt}
+    else{tg=document.createElement('textarea');tg.className='edl';tg.rows=1;tg.setAttribute('data-new','1');tg.value=sigTxt;list.appendChild(tg);tg.addEventListener('input',function(){grow(tg);count()})}
+    grow(tg);count();tg.scrollIntoView({block:'center'});flash('Signature ajoutée.');
+  });
+  var build=async function(){
+    items.forEach(function(it,i){var ta=list.querySelector('[data-i="'+i+'"]');if(ta&&ta.value!==pre(it.orig))wSet(xd,it.p,ta.value);else if(ta&&ta.value!==it.orig)wSet(xd,it.p,ta.value)});
+    var body=xd.getElementsByTagNameNS(W_NS,'body')[0],sect=null;
+    for(var c=body.firstChild;c;c=c.nextSibling){if(c.nodeType===1&&c.localName==='sectPr')sect=c}
+    list.querySelectorAll('[data-new]').forEach(function(ta){
+      var p=xd.createElementNS(W_NS,'w:p'),pp=xd.createElementNS(W_NS,'w:pPr'),sp=xd.createElementNS(W_NS,'w:spacing');sp.setAttributeNS(W_NS,'w:before','240');pp.appendChild(sp);p.appendChild(pp);
+      var r=xd.createElementNS(W_NS,'w:r');p.appendChild(r);wSet(xd,p,ta.value);
+      if(sect)body.insertBefore(p,sect);else body.appendChild(p);
+    });
+    var out=new XMLSerializer().serializeToString(xd);
+    if(out.indexOf('<?xml')!==0)out='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+out;
+    var z2=await JSZip.loadAsync(blob);z2.file('word/document.xml',out);
+    return z2.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  };
+  var run=function(fn){return async function(){var bs=m.querySelectorAll('button');bs.forEach(function(b){b.disabled=true});try{await fn()}catch(err){alert('Erreur : '+err.message);bs.forEach(function(b){b.disabled=false})}}};
+  m.querySelector('[data-eddl]').addEventListener('click',run(async function(){
+    var b=await build(),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=outName;document.body.appendChild(a);a.click();a.remove();close()}));
+  var at=m.querySelector('[data-edat]');if(at)at.addEventListener('click',run(async function(){
+    var b=await build(),file=await API.upload(new File([b],outName,{type:b.type}));PEND.push(file);close();if(window.REDRAWPEND)window.REDRAWPEND();flash('Document joint au message : cliquez sur Envoyer.')}));
+  var sd=m.querySelector('[data-edsend]');if(sd)sd.addEventListener('click',run(async function(){
+    var b=await build(),file=await API.upload(new File([b],outName,{type:b.type}));
+    var note=(m.querySelector('#ednote')||{value:''}).value.trim();
+    await API.send(CUR_CH,note,[file]);close();await refreshThread(true);flash('Document envoyé.')}));
+  var dd2=m.querySelector('[data-eddos]');if(dd2)dd2.addEventListener('click',run(async function(){
+    var id=location.hash.replace('#dossier-',''),b=await build(),file=await API.upload(new File([b],outName,{type:b.type}));
+    await API.addNote(id,'Document complété : '+title,[file]);await API.log(id,'Document complété et joint : '+title);close();flash('Document joint au dossier.');route(true)}));
+  var f1=list.querySelector('textarea');if(f1)f1.focus();
+}
+function wParas0(xd){return Array.prototype.slice.call(xd.getElementsByTagNameNS(W_NS,'p'))}
 
 /* ===================== NAVIGATION ET DÉMARRAGE ===================== */
 function navHtml(cur){
