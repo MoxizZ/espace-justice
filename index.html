@@ -1219,7 +1219,7 @@ async function dossierExtras(d){
   var cats={};DOCS.forEach(function(x,i){(cats[x.cat]=cats[x.cat]||[]).push([i,x])});
   var docs='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Créer un document à partir du dossier</h2><p class="sub">Le numéro du dossier, la date, la juridiction, les parties, les personnes chargées et le résumé des faits sont déjà remplis dans le document.</p>'+
     '<div class="inl"><select id="g_doc" aria-label="Modèle de document"><option value="">— Choisir un modèle —</option>'+Object.keys(cats).map(function(c){return '<optgroup label="'+qa(c)+'">'+cats[c].map(function(p){return '<option value="'+p[0]+'">'+esc(p[1].ref+' · '+p[1].title)+'</option>'}).join('')+'</optgroup>'}).join('')+'</select><button class="btn small" id="g_dl" type="button">Télécharger</button><button class="btn small ghost" id="g_att" type="button">Joindre au dossier</button></div></section>';
-  return {top:top,bottom:etapes+docs,links:links};
+  return {top:top,bottom:'',links:links};
 }
 function bindExtras(id){
   var go=function(fn){return async function(e){if(e&&e.preventDefault)e.preventDefault();try{await fn(e)}catch(err){flash(err.message,true)}}};
