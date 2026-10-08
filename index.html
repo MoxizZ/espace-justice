@@ -1370,13 +1370,8 @@ function bindAgenda(){
 
 /* ---------- Administration : statistiques et sauvegarde ---------- */
 async function adminExtras(){
-  var ds=await API.dossiers();
-  var cnt=function(f){var o={};ds.forEach(function(d){var k=f(d);if(k!=null&&k!=='')o[k]=(o[k]||0)+1});return o};
-  var bars=function(o,max){var ks=Object.keys(o);var mx=Math.max.apply(null,ks.map(function(k){return o[k]}).concat([1]));return ks.length?ks.map(function(k){return '<div class="brow"><span>'+esc(k)+'</span><i style="width:'+Math.round(100*o[k]/mx)+'%"></i><b>'+o[k]+'</b></div>'}).join(''):'<p class="sub">Aucune donnée.</p>'};
-  var months=function(f){var o={};var now=new Date();for(var i=5;i>=0;i--){var d=new Date(now.getFullYear(),now.getMonth()-i,1);o[d.getFullYear()+'-'+p2(d.getMonth()+1)]=0}ds.forEach(function(x){var v=f(x);if(v){var k=v.slice(0,7);if(k in o)o[k]++}});return o};
-  var h='<h2 style="font-size:22px;margin:30px 0 8px">Statistiques</h2><p class="sub">'+ds.length+' dossier'+(ds.length>1?'s':'')+' au total.</p><div class="stats"><div><h3>Par état</h3>'+bars(cnt(function(d){return d.statut}))+'</div><div><h3>Par juridiction</h3>'+bars(cnt(function(d){return d.juridiction}))+'</div><div><h3>Ouverts par mois</h3>'+bars(months(function(d){return d.created_at}))+'</div><div><h3>Classés par mois</h3>'+bars(months(function(d){return d.statut==='Classé'?d.classe_at:null}))+'</div></div>';
-  if(isSuper())h+='<h2 style="font-size:22px;margin:30px 0 8px">Sauvegarde</h2><p class="sub">Télécharge toutes les données du site (membres, dossiers, notes, journaux, échéances, répertoire, annonces, messages des salons) dans un fichier. À faire de temps en temps.</p><button class="btn" id="bk" type="button">Télécharger la sauvegarde</button>';
-  return h;
+  if(!isSuper())return '';
+  return '<h2 style="font-size:22px;margin:30px 0 8px">Sauvegarde</h2><p class="sub">Télécharge une copie de toutes les données du site dans un fichier.</p><button class="btn ghost" id="bk" type="button">Télécharger la sauvegarde</button>';
 }
 function bindAdminExtras(){
   var b=$('#bk');if(b)b.addEventListener('click',async function(){try{var o=await API.backup(),bl=new Blob([JSON.stringify(o,null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='Sauvegarde_Justice_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();flash('Sauvegarde téléchargée.')}catch(e){flash(e.message,true)}});
