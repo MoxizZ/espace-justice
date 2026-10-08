@@ -333,6 +333,7 @@ dl.pen.big{max-width:820px;margin-top:18px}
 .brow i{display:block;height:10px;background:var(--navy);border-radius:4px;min-width:2px}
 .brow b{text-align:right}
 @media (max-width:600px){.brow{grid-template-columns:100px 1fr 24px}}
+.indgrp{margin:22px 0 6px}.indh{font-size:20px;margin:0 0 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.indh .badge{font-size:13px;font-weight:600;background:#EEF1F6;color:#334;border-radius:999px;padding:2px 10px}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -657,8 +658,8 @@ if(!LIVE){
     var av=u('Avocat (démo)','Avocat','Barreau','');
     var bat=u('Bâtonnier (démo)','Bâtonnier','Barreau','Chef du Barreau');
     var pending={id:uid(),email:'nouveau@demo.local',nom:'Nouveau membre (démo)',grade:'Avocat',service:'Barreau',fonction:'',role:'membre',approved:false,created_at:nowIso()};
-    var d1={id:uid(),numero:'2026-0001',titre:'Exemple : vol à main armée (supérette)',statut:'Instruction',juridiction:'Juge d’instruction',parties:'Parquet du Roi c/ X (exemple)',resume:'Dossier d’exemple pour essayer l’espace. Les noms et faits sont fictifs.',assigne_a:ji.id,assignes:[ji.id,proc.id],created_by:proc.id,created_at:nowIso(),updated_at:nowIso()};
-    var d2={id:uid(),numero:'2026-0002',titre:'Exemple : contestation d’une amende forfaitaire',statut:'Ouvert',juridiction:'Tribunal de Police',parties:'Citoyen (exemple) c/ Police de Bruxelles',resume:'Deuxième dossier d’exemple.',assigne_a:juge.id,assignes:[juge.id,av.id],created_by:av.id,created_at:nowIso(),updated_at:nowIso()};
+    var d1={id:uid(),numero:'2026-0001',ind_nom:'Dupont',ind_prenom:'Jean',titre:'Exemple : vol à main armée (supérette)',statut:'Instruction',juridiction:'Juge d’instruction',parties:'Parquet du Roi c/ X (exemple)',resume:'Dossier d’exemple pour essayer l’espace. Les noms et faits sont fictifs.',assigne_a:ji.id,assignes:[ji.id,proc.id],created_by:proc.id,created_at:nowIso(),updated_at:nowIso()};
+    var d2={id:uid(),numero:'2026-0002',ind_nom:'Dupont',ind_prenom:'Jean',titre:'Exemple : contestation d’une amende forfaitaire',statut:'Ouvert',juridiction:'Tribunal de Police',parties:'Citoyen (exemple) c/ Police de Bruxelles',resume:'Deuxième dossier d’exemple.',assigne_a:juge.id,assignes:[juge.id,av.id],created_by:av.id,created_at:nowIso(),updated_at:nowIso()};
     return {users:[admin,adj,proc,sub,ji,juge,av,bat,pending],messages:[
       {id:uid(),channel:'general',sender:admin.id,body:'Bienvenue dans l’espace interne de la Justice. Les Codes, les guides, les documents types, la messagerie et les dossiers sont ici.',files:[],created_at:nowIso()},
       {id:uid(),channel:'parquet',sender:proc.id,body:'Rappel : toute sanction contre un agent de police doit nous être communiquée par écrit sous 48 heures (Code IV, Art. 82).',files:[],created_at:nowIso()}],
@@ -766,6 +767,8 @@ function who(id){var m=MAP[id];return m?m.nom:'Ancien membre'}
 function whoLong(id){var m=MAP[id];return m?m.nom+(m.grade?' · '+m.grade:''):'Ancien membre'}
 function asg(d){return (d.assignes&&d.assignes.length)?d.assignes:(d.assigne_a?[d.assigne_a]:[])}
 function isMine(d){return asg(d).indexOf(ME.id)>=0}
+function indiv(d){var n=(d.ind_nom||'').trim(),p=(d.ind_prenom||'').trim();return n||p?(n.toUpperCase()+(p?' '+p:'')).trim():''}
+function indivKey(d){return norm((d.ind_nom||'').trim()+' '+(d.ind_prenom||'').trim())}
 function names(d,long){var l=asg(d);return l.length?l.map(function(i){return long?whoLong(i):who(i)}).join(long?' ; ':', '):'—'}
 function approved(){return MEMBERS.filter(function(m){return m.approved})}
 var FREG=[];
@@ -1002,17 +1005,24 @@ function bindAnnuaire(){var f=$('#af');if(f)f.addEventListener('input',function(
 /* ===================== DOSSIERS ===================== */
 var JURIDICTIONS=['Parquet du Roi','Juge d’instruction','Tribunal de Police','Tribunal Correctionnel','Cour d’Assises','Cour d’Appel','Cour de Cassation','Autre'];
 var DQ={q:'',s:'',tab:'mine'};
+function groupArch(ds,card){
+  var g={},order=[];
+  ds.forEach(function(d){var k=indivKey(d)||'~';if(!g[k]){g[k]={l:indiv(d)||'Individu non renseigné',a:[]};order.push(k)}g[k].a.push(d)});
+  order.sort(function(x,y){return x==='~'?1:y==='~'?-1:x.localeCompare(y)});
+  return order.map(function(k){var o=g[k];o.a.sort(function(x,y){return (y.classe_at||'')<(x.classe_at||'')?-1:1});
+    return '<section class="indgrp"><h2 class="indh">'+esc(o.l)+' <span class="badge">'+o.a.length+' dossier'+(o.a.length>1?'s':'')+'</span></h2><div class="dlist">'+o.a.map(card).join('')+'</div></section>'}).join('')}
 var ACTIFS=STATUTS.filter(function(x){return x!=='Classé'});
 async function viewDossiers(){
   await loadMembers();var ds=await API.dossiers();
   var v=norm(DQ.q);
   var arch=DQ.tab==='arch';
   var nA=ds.filter(function(d){return d.statut==='Classé'}).length,nC=ds.length-nA,nM=ds.filter(function(d){return d.statut!=='Classé'&&isMine(d)}).length;
-  ds=ds.filter(function(d){return (arch?d.statut==='Classé':(d.statut!=='Classé'&&(DQ.tab!=='mine'||isMine(d))))&&(!DQ.s||d.statut===DQ.s)&&(!v||norm([d.numero,d.titre,d.parties,d.juridiction,d.resume,names(d)].join(' ')).indexOf(v)>=0)});
+  ds=ds.filter(function(d){return (arch?d.statut==='Classé':(d.statut!=='Classé'&&(DQ.tab!=='mine'||isMine(d))))&&(!DQ.s||d.statut===DQ.s)&&(!v||norm([d.numero,indiv(d),d.titre,d.parties,d.juridiction,d.resume,names(d)].join(' ')).indexOf(v)>=0)});
   var tb=function(k,l,n){return '<button class="tab'+(DQ.tab===k?' on':'')+'" data-tab="'+k+'" type="button">'+l+' ('+n+')</button>'};
+  var card=function(d){return '<a class="dcard" href="#dossier-'+qa(d.id)+'"><span class="dnum">'+esc(d.numero)+'</span><b>'+esc(indiv(d)||d.titre)+'</b><span>'+(indiv(d)?esc(d.titre)+' · ':'')+esc(d.juridiction||'')+(asg(d).length?' · '+esc(names(d)):'')+'</span><span class="stt st-'+qa(d.statut)+'">'+esc(d.statut)+'</span><small>'+(d.statut==='Classé'&&d.classe_at?'Classé le '+fdate(d.classe_at):'Mis à jour '+fdate(d.updated_at))+'</small></a>'};
   return '<div class="wrap page">'+pageHead('Dossiers',arch?'Archives : les dossiers classés, qui restent consultables et exportables.':(DQ.tab==='mine'?'Les dossiers sur lesquels vous êtes chargé.':'Toutes les affaires en cours : parties, juridiction, état, pièces et notes.'))+'<div class="tabs" role="tablist">'+tb('mine','Mes dossiers',nM)+tb('all','Tous en cours',nC)+tb('arch','Classés',nA)+'</div>'+
-  '<div class="bar"><input class="filter" id="dq" type="search" value="'+qa(DQ.q)+'" placeholder="Rechercher un dossier (numéro, titre, parties)" aria-label="Rechercher un dossier"><select id="ds" aria-label="Filtrer par état"><option value="">Tous les états</option>'+(arch?'':opts(ACTIFS,DQ.s))+'</select><a class="btn" href="#nouveau-dossier">Nouveau dossier</a></div>'+
-  (ds.length?'<div class="dlist">'+ds.map(function(d){return '<a class="dcard" href="#dossier-'+qa(d.id)+'"><span class="dnum">'+esc(d.numero)+'</span><b>'+esc(d.titre)+'</b><span>'+esc(d.juridiction||'')+(asg(d).length?' · '+esc(names(d)):'')+'</span><span class="stt st-'+qa(d.statut)+'">'+esc(d.statut)+'</span><small>'+(d.statut==='Classé'&&d.classe_at?'Classé le '+fdate(d.classe_at):'Mis à jour '+fdate(d.updated_at))+'</small></a>'}).join('')+'</div>':'<p class="empty">'+(arch?'Aucun dossier classé.':(DQ.tab==='mine'?'Aucun dossier ne vous est confié pour l’instant. Voir l’onglet « Tous en cours ».':'Aucun dossier en cours ne correspond.'))+'</p>')+'</div>';
+  '<div class="bar"><input class="filter" id="dq" type="search" value="'+qa(DQ.q)+'" placeholder="Rechercher un dossier (individu, numéro, titre, parties)" aria-label="Rechercher un dossier"><select id="ds" aria-label="Filtrer par état"><option value="">Tous les états</option>'+(arch?'':opts(ACTIFS,DQ.s))+'</select><a class="btn" href="#nouveau-dossier">Nouveau dossier</a></div>'+
+  (ds.length?'<div class="dlist">'+(arch?groupArch(ds,card):ds.map(card).join(''))+'</div>':'<p class="empty">'+(arch?'Aucun dossier classé.':(DQ.tab==='mine'?'Aucun dossier ne vous est confié pour l’instant. Voir l’onglet « Tous en cours ».':'Aucun dossier en cours ne correspond.'))+'</p>')+'</div>';
 }
 function bindDossiers(){
   var q=$('#dq'),s=$('#ds'),tm;
@@ -1025,6 +1035,7 @@ function dossierForm(d){
   d=d||{};FASG=d.id?asg(d).slice():[ME.id];
   var ms=approved();
   return '<form id="df" class="form wide"><div class="two"><label>Numéro<input id="f_num" value="'+qa(d.numero||(new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000)))+'" required></label><label>État<select id="f_st">'+opts(d.statut==='Classé'?STATUTS:ACTIFS,d.statut||'Ouvert')+'</select></label></div>'+
+  '<div class="two"><label>Nom de l’individu<input id="f_in" list="f_indl" value="'+qa(d.ind_nom||'')+'" required autocomplete="off"></label><label>Prénom de l’individu<input id="f_ip" value="'+qa(d.ind_prenom||'')+'" required autocomplete="off"></label></div><datalist id="f_indl"></datalist><p class="sub small">La personne visée par le dossier. Les dossiers classés sont rangés par individu : écrivez toujours le nom de la même façon.</p>'+
   '<label>Titre de l’affaire<input id="f_ti" value="'+qa(d.titre||'')+'" required></label><div class="two"><label>Juridiction<select id="f_ju">'+opts(JURIDICTIONS,d.juridiction||'Parquet du Roi')+'</select></label>'+
   '<div class="lbl"><span>Chargés du dossier (5 au maximum)</span><div id="f_asl" class="pend"></div><select id="f_asadd" aria-label="Ajouter une personne au dossier"></select></div></div>'+
   '<p class="sub small">🔒 Seuls les administrateurs, la personne qui ouvre le dossier et les personnes chargées ci-dessus le voient.</p>'+
@@ -1042,10 +1053,11 @@ function drawAsg(){
 }
 function bindDossierForm(id){
   var f=$('#df');if(!f)return;
+  API.dossiers().then(function(l){var seen={},o=[];l.forEach(function(d){if(d.ind_nom&&!seen[d.ind_nom]){seen[d.ind_nom]=1;o.push(d.ind_nom)}});var dl=$('#f_indl');if(dl)dl.innerHTML=o.sort().map(function(x){return '<option value="'+qa(x)+'">'}).join('')}).catch(function(){});
   drawAsg();$('#f_asadd').addEventListener('change',function(e){if(e.target.value&&FASG.length<5&&FASG.indexOf(e.target.value)<0){FASG.push(e.target.value)}drawAsg()});
   f.addEventListener('submit',async function(e){
     e.preventDefault();
-    var d={numero:$('#f_num').value.trim(),statut:$('#f_st').value,titre:$('#f_ti').value.trim(),juridiction:$('#f_ju').value,assignes:FASG.slice(),assigne_a:FASG[0]||null,parties:$('#f_pa').value.trim(),resume:$('#f_re').value.trim()};
+    var d={numero:$('#f_num').value.trim(),statut:$('#f_st').value,ind_nom:$('#f_in').value.trim(),ind_prenom:$('#f_ip').value.trim(),titre:$('#f_ti').value.trim(),juridiction:$('#f_ju').value,assignes:FASG.slice(),assigne_a:FASG[0]||null,parties:$('#f_pa').value.trim(),resume:$('#f_re').value.trim()};
     if(id)d.id=id;
     try{
       var old=id?Object.assign({},await API.dossier(id)):null;
@@ -1058,7 +1070,7 @@ function bindDossierForm(id){
   });
 }
 var EDITING=false,NPEND=[];
-var DLAB={numero:'numéro',statut:'état',titre:'titre',juridiction:'juridiction',assignes:'chargés du dossier',parties:'parties',resume:'résumé des faits'};
+var DLAB={ind_nom:'nom de l’individu',ind_prenom:'prénom de l’individu',numero:'numéro',statut:'état',titre:'titre',juridiction:'juridiction',assignes:'chargés du dossier',parties:'parties',resume:'résumé des faits'};
 function diffDossier(o,n){
   var out=[];
   Object.keys(DLAB).forEach(function(k){
@@ -1078,10 +1090,12 @@ async function viewDossier(id){
   var pieces=[];notes.forEach(function(n){(n.files||[]).forEach(function(f,i){pieces.push({f:f,by:n.author,at:n.created_at,nid:n.id,idx:i})})});
   var head='<div class="crumb"><a href="#accueil">Accueil</a> › <a href="#dossiers">Dossiers</a> › '+esc(d.numero)+'</div>';
   if(EDITING)return '<div class="wrap page">'+head+'<div class="ph"><div><h1>Modifier le dossier</h1></div></div>'+dossierForm(d)+'</div>';
-  var info='<dl class="pen big"><div><dt>Juridiction</dt><dd>'+esc(d.juridiction||'—')+'</dd></div><div><dt>Chargés du dossier</dt><dd>'+esc(names(d,true))+'</dd></div><div><dt>Parties</dt><dd>'+esc(d.parties||'—')+'</dd></div><div><dt>Ouvert par</dt><dd>'+esc(whoLong(d.created_by))+' · '+fdate(d.created_at)+'</dd></div></dl>';
+  var autres=indivKey(d)?(await API.dossiers()).filter(function(x){return x.id!==d.id&&indivKey(x)===indivKey(d)}):[];
+  var autresH=autres.length?'<p class="sub" style="margin-top:6px">📁 Cette personne a '+autres.length+' autre'+(autres.length>1?'s':'')+' dossier'+(autres.length>1?'s':'')+' visible'+(autres.length>1?'s':'')+' par vous : '+autres.map(function(x){return '<a href="#dossier-'+qa(x.id)+'">'+esc(x.numero)+(x.statut==='Classé'?' (classé)':'')+'</a>'}).join(', ')+'.</p>':'';
+  var info='<dl class="pen big"><div><dt>Individu</dt><dd><b>'+esc(indiv(d)||'—')+'</b></dd></div><div><dt>Juridiction</dt><dd>'+esc(d.juridiction||'—')+'</dd></div><div><dt>Chargés du dossier</dt><dd>'+esc(names(d,true))+'</dd></div><div><dt>Parties</dt><dd>'+esc(d.parties||'—')+'</dd></div><div><dt>Ouvert par</dt><dd>'+esc(whoLong(d.created_by))+' · '+fdate(d.created_at)+'</dd></div></dl>';
   return '<div class="wrap page">'+head+'<div class="ph"><div><div class="dnum">'+esc(d.numero)+'</div><h1>'+esc(d.titre)+'</h1></div><div class="dact"><select id="dst" aria-label="État du dossier">'+opts(STATUTS,d.statut)+'</select><button class="btn ghost" id="ded" type="button">Modifier</button><button class="btn ghost" id="dpdf" type="button">Exporter en PDF</button><button class="btn ghost" id="dhtml" type="button">Télécharger</button>'+(isAdm()?'<button class="btn danger" id="ddel" type="button">Supprimer</button>':'')+'</div></div>'+
   (d.statut==='Classé'?'<div class="banner"><b>Dossier classé</b>'+(d.classe_at?' le '+fdate(d.classe_at):'')+(d.motif_classement?' — motif : '+esc(d.motif_classement):'')+'. Pour le rouvrir, changez son état.</div>':'')+
-  info+EX.top+'<section class="block" style="padding-top:20px"><h2 style="font-size:22px">Résumé des faits</h2><p class="res-txt">'+(esc(d.resume||'Aucun résumé.').replace(/\n/g,'<br>'))+'</p></section>'+
+  info+autresH+EX.top+'<section class="block" style="padding-top:20px"><h2 style="font-size:22px">Résumé des faits</h2><p class="res-txt">'+(esc(d.resume||'Aucun résumé.').replace(/\n/g,'<br>'))+'</p></section>'+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Pièces ('+pieces.length+')</h2>'+(pieces.length?'<div class="mf" style="margin-top:8px">'+pieces.map(function(p){FREG.push(p.f);var i=FREG.length-1;var can=p.by===ME.id||isAdm()||asg(d).indexOf(ME.id)>=0;var x=can?'<button class="pdel" type="button" data-pn="'+qa(p.nid)+'" data-pi="'+p.idx+'" data-pname="'+qa(p.f.name)+'" title="Retirer cette pièce" aria-label="Retirer la pièce '+qa(p.f.name)+'">×</button>':'';return '<span class="pc">'+(p.f.url&&!p.f.data?'<a class="fchip" href="'+qa(p.f.url)+'" target="_blank" rel="noopener">📄 '+esc(p.f.name)+'</a>':'<a class="fchip" href="#" data-fi="'+i+'">📎 '+esc(p.f.name)+'</a>')+x+((p.f.visas&&p.f.visas.length)?'<small class="visa">✓ visé par '+p.f.visas.map(function(s){return esc(who(s.by))+' le '+fdate(s.at)}).join(' ; ')+'</small>':'')+((MAGIS.indexOf(ME.grade)>=0&&!(p.f.visas||[]).some(function(s){return s.by===ME.id}))?'<button class="visabtn" type="button" data-vn="'+qa(p.nid)+'" data-vi="'+p.idx+'" title="Apposer mon visa">Viser</button>':'')+'</span>'}).join('')+'</div>':'<p class="sub">Aucune pièce jointe. Ajoutez-en dans une note.</p>')+'</section>'+EX.bottom+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Notes et suivi</h2><div class="notes">'+(notes.filter(function(n){return n.body||(n.files&&n.files.length)}).map(function(n){return '<div class="msg"><div class="mh"><b>'+esc(who(n.author))+'</b><small>'+esc((MAP[n.author]||{}).grade||'')+' · '+fdate(n.created_at)+'</small></div><div class="mb">'+linkify(esc(n.body||'').replace(/\n/g,'<br>'),null)+'</div>'+fileLinks(n.files)+'</div>'}).join('')||'<p class="sub">Aucune note pour l’instant.</p>')+'</div>'+
   '<form id="nf" class="comp" style="margin-top:12px"><div id="npend" class="pend"></div><textarea id="nt" rows="3" placeholder="Ajouter une note, un acte, une décision…" aria-label="Nouvelle note"></textarea><div class="comprow"><label class="btn ghost small">📎 Joindre un fichier<input id="nfile" type="file" multiple hidden></label><button class="btn" type="submit">Ajouter la note</button></div></form></section>'+
@@ -1133,7 +1147,7 @@ async function buildExport(d,notes,hist){
   return '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Dossier '+e(d.numero)+'</title><style>'+css+'</style></head><body>'+
   '<div class="top">Royaume de Belgique · Ville de Bruxelles · Justice</div><h1>Dossier n° '+e(d.numero)+'</h1><div>'+e(d.titre)+'</div>'+
   (d.statut==='Classé'?'<div class="cl">DOSSIER CLASSÉ'+(d.classe_at?' le '+fdate(d.classe_at):'')+(d.motif_classement?' — motif : '+e(d.motif_classement):'')+'</div>':'')+
-  '<h2>Renseignements</h2><table><tr><td>État</td><td>'+e(d.statut)+'</td></tr><tr><td>Juridiction</td><td>'+e(d.juridiction||'—')+'</td></tr><tr><td>Chargés du dossier</td><td>'+e(names(d,true))+'</td></tr><tr><td>Parties</td><td>'+e(d.parties||'—')+'</td></tr><tr><td>Ouvert par</td><td>'+e(whoLong(d.created_by))+' le '+fdate(d.created_at)+'</td></tr></table>'+
+  '<h2>Renseignements</h2><table><tr><td>Individu</td><td>'+e(indiv(d)||'—')+'</td></tr><tr><td>État</td><td>'+e(d.statut)+'</td></tr><tr><td>Juridiction</td><td>'+e(d.juridiction||'—')+'</td></tr><tr><td>Chargés du dossier</td><td>'+e(names(d,true))+'</td></tr><tr><td>Parties</td><td>'+e(d.parties||'—')+'</td></tr><tr><td>Ouvert par</td><td>'+e(whoLong(d.created_by))+' le '+fdate(d.created_at)+'</td></tr></table>'+
   '<h2>Résumé des faits</h2><p>'+nl(d.resume||'Aucun résumé.')+'</p>'+
   '<h2>Notes et décisions ('+notes.length+')</h2>'+(notes.map(function(n){return '<div class="n"><small>'+e(whoLong(n.author))+' — '+fdate(n.created_at)+'</small><br>'+nl(n.body)+'</div>'}).join('')||'<p>Aucune note.</p>')+
   '<h2>Pièces jointes ('+np+')</h2>'+(np?'<ul>'+piecesHtml+'</ul><p><i>Les fichiers eux-mêmes se téléchargent depuis le dossier et se transmettent séparément.</i></p>':'<p>Aucune pièce.</p>')+
