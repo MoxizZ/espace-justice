@@ -690,7 +690,7 @@ function hitHtml(x){
 function viewSearch(q){
   var res=search(q),total=res.length,shown=res.slice(0,50);
   var h='<div class="wrap page"><div class="crumb"><a href="#accueil">Accueil</a> › Recherche</div><div class="ph"><div><h1>Recherche</h1></div></div>'+
-  '<form class="bigsearch" id="bs" role="search"><input id="bq" type="search" value="'+esc(q)+'" placeholder="Un mot ou « Code III art 14 »" aria-label="Rechercher" autocomplete="off"></form>';
+  '<form class="bigsearch" id="bs" role="search"><input id="bq" type="search" value="'+esc(q)+'" placeholder="Dossier, nom, note, pièce ou « Code III art 14 »" aria-label="Rechercher" autocomplete="off"></form>';
   h+='<p aria-live="polite" style="color:var(--muted)">'+(q.trim()?(total?total+' résultat'+(total>1?'s':'')+(total>50?' (50 premiers affichés)':''):'Aucun résultat. Essayez un autre mot ou un numéro d’article.'):'Tapez un mot, par exemple « avocat », « perquisition » ou « A.49 ».')+'</p>';
   h+='<ul class="res">'+shown.map(hitHtml).join('')+'</ul></div>';
   return h;
@@ -747,7 +747,9 @@ if(!LIVE){
     async send(ch,body,files){if(!canChannel(ch))throw new Error('Vous n’avez pas accès à ce salon.');ST.messages.push({id:uid(),channel:ch,sender:ME.id,body:body,files:files||[],created_at:nowIso()});save()},
     async upload(file){return new Promise(function(res,rej){if(file.size>1200000)return rej(new Error('Fichier trop gros pour la démonstration (1,2 Mo maximum).'));var r=new FileReader();r.onload=function(){res({name:file.name,size:file.size,data:r.result})};r.onerror=rej;r.readAsDataURL(file)})},
     async fileUrl(f){return f.data||f.url},
-    async dossiers(){return ST.dossiers.filter(canSeeD).sort(function(a,b){return a.updated_at<b.updated_at?1:-1})},
+    async dossiers(){return ST.dossiers.filter(function(d){return canSeeD(d)&&!d.deleted_at}).sort(function(a,b){return a.updated_at<b.updated_at?1:-1})},
+    async trash(){return ST.dossiers.filter(function(d){return d.deleted_at&&canSeeD(d)}).sort(function(x,y){return x.deleted_at<y.deleted_at?1:-1})},
+    async allNotes(){var ok={};ST.dossiers.forEach(function(d){if(canSeeD(d)&&!d.deleted_at)ok[d.id]=1});return ST.notes.filter(function(n){return ok[n.dossier_id]})},
     async dossier(id){var d=ST.dossiers.filter(function(d){return d.id===id})[0];return d&&canSeeD(d)?d:null},
     async saveDossier(d){if(d.id){var x=ST.dossiers.filter(function(y){return y.id===d.id})[0];Object.assign(x,d,{updated_at:nowIso()})}else{d.id=uid();d.created_by=ME.id;d.created_at=d.updated_at=nowIso();ST.dossiers.push(d)}save();return d},
     async log(id,texte){ST.log=ST.log||[];ST.log.push({id:uid(),dossier_id:id,author:ME.id,action:texte,created_at:nowIso()});save()},
@@ -791,7 +793,9 @@ if(!LIVE){
     async send(ch,body,files){chk(await SB.from('messages').insert({channel:ch,sender:ME.id,body:body,files:files||[]}))},
     async upload(file){if(file.size>20000000)throw new Error('Fichier trop gros (20 Mo maximum).');var safe=file.name.replace(/[^\w.\-]+/g,'_');var path=ME.id+'/'+Date.now()+'_'+safe;var r=await SB.storage.from('pieces').upload(path,file);if(r.error)throw new Error(r.error.message);return {name:file.name,size:file.size,path:path}},
     async fileUrl(f){if(f.url)return f.url;var r=await SB.storage.from('pieces').createSignedUrl(f.path,3600);if(r.error)throw new Error(r.error.message);return r.data.signedUrl},
-    async dossiers(){return chk(await SB.from('dossiers').select('*').order('updated_at',{ascending:false}))},
+    async dossiers(){return chk(await SB.from('dossiers').select('*').is('deleted_at',null).order('updated_at',{ascending:false}))},
+    async trash(){return chk(await SB.from('dossiers').select('*').not('deleted_at','is',null).order('deleted_at',{ascending:false}))},
+    async allNotes(){return chk(await SB.from('dossier_notes').select('*').order('created_at',{ascending:false}))},
     async dossier(id){return chk(await SB.from('dossiers').select('*').eq('id',id).maybeSingle())},
     async saveDossier(d){var row=Object.assign({},d,{updated_at:nowIso()});if(d.id){chk(await SB.from('dossiers').update(row).eq('id',d.id));return d}row.created_by=ME.id;delete row.id;var r=await SB.from('dossiers').insert(row).select().single();return chk(r)},
     async log(id,texte){var r=await SB.from('dossier_log').insert({dossier_id:id,author:ME.id,action:texte});if(r.error)console.warn(r.error.message)},
@@ -930,7 +934,7 @@ function viewPending(){return '<div class="loginwrap"><div class="logincard"><di
 async function viewHome(){
   var ds=await API.dossiers();var open=ds.filter(function(d){return d.statut!=='Classé'&&d.statut!=='Jugé'});
   var q='<section class="hero"><div class="wrap"><div><div class="eyebrow">BruxellesLife · Ville de Bruxelles</div><h1>Espace interne de la Justice</h1><p class="lead">Bonjour '+esc(ME.nom)+'. Les Codes, les guides, les documents types, la messagerie et les dossiers, au même endroit.</p>'+
-  '<form class="searchbox" id="hs" role="search"><input id="hq" type="search" placeholder="Un mot ou « Code III art 14 »" aria-label="Rechercher dans les Codes et les guides" autocomplete="off"><button type="submit">Rechercher</button></form></div>'+
+  '<form class="searchbox" id="hs" role="search"><input id="hq" type="search" placeholder="Dossier, nom, note, pièce ou « Code III art 14 »" aria-label="Rechercher dans les Codes et les guides" autocomplete="off"><button type="submit">Rechercher</button></form></div>'+
   '<div class="facts"><div><b>'+approved().length+'</b><span>membres</span></div><div><b>'+open.length+'</b><span>dossiers en cours</span></div><div><b>'+totalArts()+'</b><span>articles en vigueur</span></div></div></div></section>';
   var cards=[['messages','Messagerie','Salons par service et messages privés, avec envoi de documents.'],['dossiers','Dossiers','Les affaires en cours, leurs pièces et leurs notes.'],['annuaire','Annuaire','Les membres de la Justice, avec leurs grades.'],['documents','Documents types','Les modèles d’actes à télécharger ou à envoyer à un collègue.']].map(function(a){return '<a class="act" href="#'+a[0]+'"><b>'+a[1]+'</b><span>'+a[2]+'</span><em>Ouvrir</em></a>'}).join('');
   var mine=starFirst(ds.filter(function(d){return d.statut!=='Classé'&&isMine(d)}));var rec=mine.slice(0,6).map(function(d){return '<a class="act" href="#dossier-'+qa(d.id)+'"><b>'+(isStar(d)?'⭐ ':'')+esc(d.numero)+' · '+esc(d.titre)+'</b><span>'+esc(d.juridiction||'')+' · mis à jour '+fdate(d.updated_at)+'</span><em>'+esc(d.statut)+'</em></a>'}).join('')||'<p class="sub">Aucun dossier ne vous est confié pour l’instant.</p>';
@@ -1069,6 +1073,11 @@ async function viewAnnuaire(){
 }
 function bindAnnuaire(){var f=$('#af');if(f)f.addEventListener('input',function(){var v=norm(f.value.trim());document.querySelectorAll('.dr').forEach(function(r){r.hidden=v&&r.getAttribute('data-t').indexOf(v)<0})})}
 
+/* ===================== IMPRESSION ===================== */
+function printCss(){return '@page{size:A4;margin:16mm 16mm 22mm}*{box-sizing:border-box}body{font:13px/1.55 Georgia,"Times New Roman",serif;color:#111;max-width:760px;margin:0 auto;padding:26px}.lh{display:flex;align-items:center;gap:14px;border-bottom:3px double #0B1F4B;padding-bottom:12px;margin-bottom:6px}.emb{flex:0 0 56px;width:56px;height:56px;border:2px solid #0B1F4B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;color:#0B1F4B}.lh .org{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:#0B1F4B}.lh b{display:block;font-size:19px;letter-spacing:.02em;color:#0B1F4B}.lh .ref{margin-left:auto;text-align:right;font-size:11px;color:#444;line-height:1.4}.conf{display:inline-block;font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:#7a1a1a;border:1px solid #7a1a1a;padding:2px 8px;margin:8px 0 0}h1{font-size:22px;margin:12px 0 2px;color:#0B1F4B}h2{font-size:13px;color:#0B1F4B;border-bottom:1px solid #0B1F4B;padding-bottom:3px;margin:22px 0 8px;text-transform:uppercase;letter-spacing:.08em;page-break-after:avoid}table{border-collapse:collapse;width:100%}td,th{padding:4px 8px;vertical-align:top;border-bottom:1px solid #ddd;text-align:left}tr{page-break-inside:avoid}td:first-child{width:170px;font-weight:bold}.n{border-left:3px solid #0B1F4B;padding:4px 10px;margin:8px 0;page-break-inside:avoid}.n small{color:#555}.cl{border:2px solid #0B1F4B;padding:7px 10px;margin:12px 0;font-weight:bold}li{margin:2px 0}.sign{display:flex;justify-content:space-between;gap:40px;margin-top:44px;page-break-inside:avoid}.sign div{flex:1;border-top:1px solid #333;padding-top:4px;font-size:11px;color:#333}.ft{margin-top:30px;font-size:10.5px;color:#555;border-top:1px solid #999;padding-top:6px}@media print{body{padding:0}.ft{position:fixed;bottom:0;left:0;right:0;margin:0;background:#fff}}'}
+function printHead(titre,sous,ref){return '<div class="lh"><div class="emb">§</div><div><div class="org">BruxellesLife · Ville de Bruxelles</div><b>Justice</b></div><div class="ref">'+ref+'<br>Édité le '+fdate(new Date().toISOString())+'</div></div><span class="conf">Document confidentiel · usage interne</span><h1>'+titre+'</h1>'+(sous?'<div>'+sous+'</div>':'')}
+function printSign(){return '<div class="sign"><div>Visa du magistrat chargé du dossier</div><div>Date et cachet</div></div>'}
+
 /* ===================== DOSSIERS ===================== */
 var JURIDICTIONS=['Parquet','Juge d’instruction','Tribunal de Police','Tribunal Correctionnel','Cour d’Assises','Cour d’Appel','Cour de Cassation','Autre'];
 var DQ={q:'',s:'',tab:'mine'};
@@ -1159,7 +1168,7 @@ function diffDossier(o,n){
 }
 async function viewDossier(id){
   await loadMembers();var d=await API.dossier(id);
-  if(!d)return '<div class="wrap page">'+pageHead('Dossier introuvable','Ce dossier n’existe pas ou vous n’y avez pas accès.')+'<a class="btn" href="#dossiers">Retour aux dossiers</a></div>';
+  if(!d||d.deleted_at)return '<div class="wrap page">'+pageHead('Dossier introuvable','Ce dossier n’existe pas ou vous n’y avez pas accès.')+'<a class="btn" href="#dossiers">Retour aux dossiers</a></div>';
   var notes=await API.notes(id);var hist=await API.history(id);var EX=await dossierExtras(d);FREG=[];
   var pieces=[];notes.forEach(function(n){(n.files||[]).forEach(function(f,i){pieces.push({f:f,by:n.author,at:n.created_at,nid:n.id,idx:i})})});
   var head='<div class="crumb"><a href="#accueil">Accueil</a> › <a href="#dossiers">Dossiers</a> › '+esc(d.numero)+'</div>';
@@ -1194,7 +1203,7 @@ async function viewDossier(id){
     '<li class="now" id="htlnow"><span class="ti">●</span><div class="hc"><b>Aujourd’hui</b></div></li>'+
     ups.map(function(e){var late=new Date(e.date_heure).getTime()<now;return '<li class="up'+(late?' late':'')+'"><span class="ti">📅</span><div class="hc"><time>'+fday(e.date_heure)+' à '+ftime(e.date_heure)+'</time><div class="mb"><b>'+esc(e.type)+'</b>'+(e.note?' — '+esc(e.note):'')+'<br><em>'+reste(e.date_heure)+'</em></div></div></li>'}).join('')+
     '</ol></div></section>';
-  return '<div class="wrap page">'+head+'<div class="ph"><div><div class="dnum">'+(isStar(d)?'⭐ ':'')+esc(d.numero)+'</div><h1>'+esc(d.titre)+'</h1>'+(indiv(d)?'<div class="indsub"><a href="'+ficheHref(d)+'" title="Ouvrir la fiche d’individu">👤 '+esc(indiv(d))+'</a></div>':'')+'</div><div class="dact"><select id="dst" aria-label="État du dossier">'+opts(STATUTS,d.statut)+'</select><button class="btn ghost" id="dstar" type="button" aria-pressed="'+(isStar(d)?'true':'false')+'">'+(isStar(d)?'★ Prioritaire':'☆ Prioritaire')+'</button><button class="btn ghost" id="ded" type="button">Modifier</button><button class="btn ghost" id="dpdf" type="button">Exporter en PDF</button><button class="btn ghost" id="dhtml" type="button">Télécharger</button>'+(isAdm()?'<button class="btn danger" id="ddel" type="button">Supprimer</button>':'')+'</div></div>'+
+  return '<div class="wrap page">'+head+'<div class="ph"><div><div class="dnum">'+(isStar(d)?'⭐ ':'')+esc(d.numero)+'</div><h1>'+esc(d.titre)+'</h1>'+(indiv(d)?'<div class="indsub"><a href="'+ficheHref(d)+'" title="Ouvrir la fiche d’individu">👤 '+esc(indiv(d))+'</a></div>':'')+'</div><div class="dact"><select id="dst" aria-label="État du dossier">'+opts(STATUTS,d.statut)+'</select>'+(function(){var cand=approved().filter(function(m){return asg(d).indexOf(m.id)<0});return cand.length?'<select id="dtr" aria-label="Confier le dossier à"><option value="">Confier à…</option>'+cand.map(function(m){return '<option value="'+qa(m.id)+'">'+esc(m.nom+' · '+m.grade)+'</option>'}).join('')+'</select>':''})()+'<button class="btn ghost" id="dstar" type="button" aria-pressed="'+(isStar(d)?'true':'false')+'">'+(isStar(d)?'★ Prioritaire':'☆ Prioritaire')+'</button><button class="btn ghost" id="ded" type="button">Modifier</button><button class="btn ghost" id="dpdf" type="button">Exporter en PDF</button><button class="btn ghost" id="dhtml" type="button">Télécharger</button>'+(isAdm()?'<button class="btn danger" id="ddel" type="button">Mettre à la corbeille</button>':'')+'</div></div>'+
   (d.statut==='Classé'?'<div class="banner"><b>Dossier classé</b>'+(d.classe_at?' le '+fdate(d.classe_at):'')+(d.motif_classement?' — motif : '+esc(d.motif_classement):'')+'. Pour le rouvrir, changez son état.</div>':'')+
   info+autresH+asgH+liesH+EX.top+'<section class="block" style="padding-top:20px"><h2 style="font-size:22px">Résumé des faits</h2><p class="res-txt">'+(esc(d.resume||'Aucun résumé.').replace(/\n/g,'<br>'))+'</p></section>'+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Pièces ('+pieces.length+')</h2>'+(pieces.length?'<div class="mf" style="margin-top:8px">'+pieces.map(function(p){FREG.push(p.f);var i=FREG.length-1;var can=p.by===ME.id||isAdm()||asg(d).indexOf(ME.id)>=0;var x=can?'<button class="pdel" type="button" data-pn="'+qa(p.nid)+'" data-pi="'+p.idx+'" data-pname="'+qa(p.f.name)+'" title="Retirer cette pièce" aria-label="Retirer la pièce '+qa(p.f.name)+'">×</button>':'';return '<span class="pc">'+(p.f.url&&!p.f.data?'<a class="fchip" href="'+qa(p.f.url)+'" target="_blank" rel="noopener">📄 '+esc(p.f.name)+'</a>':'<a class="fchip" href="#" data-fi="'+i+'">📎 '+esc(p.f.name)+'</a>')+x+((p.f.visas&&p.f.visas.length)?'<small class="visa">✓ visé par '+p.f.visas.map(function(s){return esc(who(s.by))+' le '+fdate(s.at)}).join(' ; ')+'</small>':'')+((MAGIS.indexOf(ME.grade)>=0&&!(p.f.visas||[]).some(function(s){return s.by===ME.id}))?'<button class="visabtn" type="button" data-vn="'+qa(p.nid)+'" data-vi="'+p.idx+'" title="Apposer mon visa">Viser</button>':'')+'</span>'}).join('')+'</div>':'<p class="sub">Aucune pièce jointe. Ajoutez-en dans une note de la chronologie.</p>')+'</section>'+tl+EX.bottom+'</div>';
@@ -1231,6 +1240,17 @@ function bindDossier(id){
     if(!confirm('Retirer la pièce « '+nm+' » de ce dossier ?\n\nLe fichier sera supprimé définitivement. Le journal du dossier gardera la trace du retrait.'))return;
     try{await API.removeFile(b.getAttribute('data-pn'),+b.getAttribute('data-pi'));await API.log(id,'Pièce retirée : '+nm);flash('Pièce retirée.');route(true)}catch(e){flash(e.message,true)}
   })});
+  var tr=$('#dtr');if(tr)tr.addEventListener('change',async function(){
+    var u=tr.value;if(!u)return;
+    try{var d=await API.dossier(id),as=asg(d),swap=as.indexOf(ME.id)>=0;
+      var l=swap?as.map(function(i){return i===ME.id?u:i}):[u];
+      var hold=!isAdm()&&d.created_by!==ME.id&&l.indexOf(ME.id)<0;
+      if(!confirm('Confier ce dossier à '+whoLong(u)+' ?\n\n'+(swap?'Vous ne serez plus chargé du dossier à sa place.':'Les personnes chargées actuellement ('+(names(d)||'aucune')+') seront remplacées.')+(hold?'\nVous ne verrez plus ce dossier.':''))){tr.value='';return}
+      await API.upd('dossiers',id,{assignes:l,assigne_a:l[0]||null});
+      await API.log(id,'Dossier confié à '+whoLong(u)+(swap?' (à la place de '+who(ME.id)+')':' (anciens chargés : '+(as.map(who).join(', ')||'aucun')+')'));
+      if(hold){flash('Dossier confié à '+who(u)+'.');location.hash='dossiers'}else{flash('Dossier confié à '+who(u)+'.');route(true)}
+    }catch(e){flash(e.message,true);tr.value=''}
+  });
   var sb=$('#dstar');if(sb)sb.addEventListener('click',async function(){
     try{var d=await API.dossier(id),l=(d.etoile||[]).slice(),i=l.indexOf(ME.id);if(i>=0)l.splice(i,1);else l.push(ME.id);await API.upd('dossiers',id,{etoile:l});flash(i>=0?'Dossier retiré des prioritaires.':'Dossier prioritaire : il passe en tête de vos listes.');route(true)}catch(e){flash(e.message,true)}
   });
@@ -1265,7 +1285,7 @@ function bindDossier(id){
       await API.log(id,'Lien retiré avec le dossier '+nm);flash('Lien retiré.');route(true)}catch(e){flash(e.message,true)}
   })});
   var ed=$('#ded');if(ed)ed.addEventListener('click',function(){EDITING=true;route(true)});
-  var dl=$('#ddel');if(dl)dl.addEventListener('click',async function(){if(confirm('Supprimer ce dossier et toutes ses notes ?')){try{var cur=await API.dossier(id);for(var li=0;li<((cur&&cur.lies)||[]).length;li++){try{var ot=await API.dossier(cur.lies[li]);if(ot)await API.upd('dossiers',ot.id,{lies:(ot.lies||[]).filter(function(x){return x!==id})})}catch(e2){}}await API.deleteDossier(id);location.hash='dossiers'}catch(e){flash(e.message,true)}}});
+  var dl=$('#ddel');if(dl)dl.addEventListener('click',async function(){if(confirm('Mettre ce dossier à la corbeille ?\n\nIl disparaît des listes mais un administrateur peut le restaurer pendant 30 jours.')){try{await API.upd('dossiers',id,{deleted_at:new Date().toISOString(),deleted_by:ME.id});await API.log(id,'Dossier mis à la corbeille');flash('Dossier mis à la corbeille.');location.hash='dossiers'}catch(e){flash(e.message,true)}}});
   NPEND=[];var np=$('#npend');
   var draw=function(){np.innerHTML=NPEND.map(function(p,i){return '<span class="fchip">📎 '+esc(p.name)+' <button type="button" data-rm="'+i+'">×</button></span>'}).join('');np.querySelectorAll('[data-rm]').forEach(function(b){b.addEventListener('click',function(){NPEND.splice(+b.getAttribute('data-rm'),1);draw()})})};
   $('#nfile').addEventListener('change',async function(e){var fs=Array.prototype.slice.call(e.target.files);e.target.value='';for(var i=0;i<fs.length;i++){try{NPEND.push(await API.upload(fs[i]));draw()}catch(err){flash(err.message,true)}}});
@@ -1277,16 +1297,40 @@ async function buildExport(d,notes,hist){
   var piecesHtml='';var np=0;
   notes.forEach(function(n){(n.files||[]).forEach(function(f){np++;piecesHtml+='<li>'+e(f.name)+(f.size?' ('+fsize(f.size)+')':'')+' — ajoutée par '+e(who(n.author))+' le '+fdate(n.created_at)+'</li>'})});
   var allD=await API.dossiers();var lie=(d.lies||[]).map(function(i){return allD.filter(function(x){return x.id===i})[0]}).filter(Boolean);
-  var css='body{font:14px/1.5 Georgia,serif;color:#111;max-width:780px;margin:30px auto;padding:0 20px}h1{font-size:24px;margin:4px 0 2px}h2{font-size:16px;border-bottom:1px solid #999;padding-bottom:3px;margin-top:26px;text-transform:uppercase;letter-spacing:.05em}.top{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#555}table{border-collapse:collapse;width:100%}td{padding:4px 8px;vertical-align:top;border-bottom:1px solid #ddd}td:first-child{width:170px;font-weight:bold}.n{border-left:3px solid #999;padding:4px 10px;margin:10px 0}.n small{color:#555}.cl{border:2px solid #333;padding:8px;margin:12px 0;font-weight:bold}footer{margin-top:30px;font-size:11px;color:#555;border-top:1px solid #999;padding-top:6px}@media print{body{margin:0}}';
+  var css=printCss();
   return '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Dossier '+e(d.numero)+'</title><style>'+css+'</style></head><body>'+
-  '<div class="top">BruxellesLife · Ville de Bruxelles · Justice</div><h1>Dossier n° '+e(d.numero)+'</h1><div>'+e(d.titre)+'</div>'+
+  printHead('Dossier n° '+e(d.numero),e(d.titre),'Dossier n° '+e(d.numero))+
   (d.statut==='Classé'?'<div class="cl">DOSSIER CLASSÉ'+(d.classe_at?' le '+fdate(d.classe_at):'')+(d.motif_classement?' — motif : '+e(d.motif_classement):'')+'</div>':'')+
   '<h2>Renseignements</h2><table><tr><td>Individu</td><td>'+e(indiv(d)||'—')+'</td></tr><tr><td>État</td><td>'+e(d.statut)+'</td></tr><tr><td>Juridiction</td><td>'+e(d.juridiction||'—')+'</td></tr><tr><td>Chargés du dossier</td><td>'+e(names(d,true))+'</td></tr><tr><td>Parties</td><td>'+e(d.parties||'—')+'</td></tr>'+(lie.length?'<tr><td>Dossiers liés</td><td>'+lie.map(function(x){return e(x.numero+' ('+x.titre+')')}).join(' ; ')+'</td></tr>':'')+'<tr><td>Ouvert par</td><td>'+e(whoLong(d.created_by))+' le '+fdate(d.created_at)+'</td></tr></table>'+
   '<h2>Résumé des faits</h2><p>'+nl(d.resume||'Aucun résumé.')+'</p>'+
   '<h2>Notes et décisions ('+notes.length+')</h2>'+(notes.map(function(n){return '<div class="n"><small>'+e(whoLong(n.author))+' — '+fdate(n.created_at)+'</small><br>'+nl(n.body)+'</div>'}).join('')||'<p>Aucune note.</p>')+
   '<h2>Pièces jointes ('+np+')</h2>'+(np?'<ul>'+piecesHtml+'</ul><p><i>Les fichiers eux-mêmes se téléchargent depuis le dossier et se transmettent séparément.</i></p>':'<p>Aucune pièce.</p>')+
   '<h2>Journal des modifications</h2><ul>'+hist.slice().reverse().map(function(l){return '<li>'+fdate(l.created_at)+' — '+e(who(l.author))+' : '+e(l.action)+'</li>'}).join('')+'</ul>'+
-  '<footer>Exporté le '+fdate(new Date().toISOString())+' par '+e(whoLong(ME.id))+'. Univers de jeu de rôle fictif.</footer></body></html>';
+  printSign()+'<div class="ft">Exporté le '+fdate(new Date().toISOString())+' par '+e(whoLong(ME.id))+'. Univers de jeu de rôle fictif.</div></body></html>';
+}
+
+/* ===================== RECHERCHE GLOBALE ===================== */
+function snipN(text,t){var n=norm(text),i=-1;for(var k=0;k<t.length;k++){i=n.indexOf(t[k]);if(i>=0)break}if(i<0)i=0;var s=Math.max(0,i-50);return (s>0?'… ':'')+esc(text.slice(s,s+170))+(s+170<text.length?' …':'')}
+async function viewSearchAll(q){
+  var html=viewSearch(q);
+  var t=norm((q||'').trim()).split(/\s+/).filter(Boolean);
+  if(!t.length||!ME)return html;
+  await loadMembers();
+  var ds=await API.dossiers(),notes=[];try{notes=await API.allNotes()}catch(e){}
+  var dm={};ds.forEach(function(d){dm[d.id]=d});
+  var has=function(s){var n=norm(s||'');return t.every(function(x){return n.indexOf(x)>=0})};
+  var hd=ds.filter(function(d){return has([d.numero,indiv(d),d.titre,d.parties,d.juridiction,d.resume,d.statut,names(d)].join(' '))});
+  var hn=notes.filter(function(n){return dm[n.dossier_id]&&n.body&&has(n.body)});
+  var hp=[];notes.forEach(function(n){if(!dm[n.dossier_id])return;(n.files||[]).forEach(function(f){if(has(f.name))hp.push({f:f,n:n})})});
+  var sec=function(titre,n,body){return n?'<section class="block" style="padding-top:8px"><h2 style="font-size:22px">'+titre+' ('+n+')</h2>'+body+'</section>':''};
+  var hit=function(d,where,b,p){return '<li><a class="hit" href="#dossier-'+qa(d.id)+'"><span class="where">'+where+'</span><b>'+b+'</b>'+(p?'<p>'+p+'</p>':'')+'</a></li>'};
+  var out=sec('Dossiers',hd.length,'<div class="dlist">'+hd.slice(0,20).map(function(d){return '<a class="dcard" href="#dossier-'+qa(d.id)+'"><span class="dnum">'+(isStar(d)?'⭐ ':'')+esc(d.numero)+'</span><b>'+esc(d.titre)+'</b><span>'+(indiv(d)?'👤 '+esc(indiv(d))+' · ':'')+esc(d.juridiction||'')+'</span><span class="stt st-'+qa(d.statut)+'">'+esc(d.statut)+'</span></a>'}).join('')+'</div>')+
+    sec('Notes',hn.length,'<ul class="res">'+hn.slice(0,20).map(function(n){var d=dm[n.dossier_id];return hit(d,'Note · dossier '+esc(d.numero)+' · '+fdate(n.created_at),esc(d.titre),snipN(n.body,t))}).join('')+'</ul>')+
+    sec('Pièces',hp.length,'<ul class="res">'+hp.slice(0,20).map(function(x){var d=dm[x.n.dossier_id];return hit(d,'Pièce · dossier '+esc(d.numero)+' · '+fdate(x.n.created_at),'📎 '+esc(x.f.name),esc(d.titre))}).join('')+'</ul>');
+  if(!out)return html;
+  var nc=search(q).length;
+  if(!nc)return html.replace(/<p aria-live="polite"[^>]*>.*?<\/p>/,'').replace('<ul class="res"></ul>',out);
+  return html.replace('<ul class="res">',out+'<h2 style="font-size:22px;margin:22px 0 8px">Codes et guides ('+nc+')</h2><ul class="res">');
 }
 
 /* ===================== FICHE D’INDIVIDU ===================== */
@@ -1332,13 +1376,13 @@ function bindIndividu(k){
   var b=$('#ipdf');if(b)b.addEventListener('click',async function(){
     try{var D0=await indivData(k);var ds=D0.ds;if(!ds.length)return;var e=esc;
       var nxt=D0.ech.filter(function(x){return !x.e.done}).sort(function(a,b){return a.e.date_heure<b.e.date_heure?-1:1});
-      var css='body{font:14px/1.5 Georgia,serif;color:#111;max-width:780px;margin:30px auto;padding:0 20px}h1{font-size:24px;margin:4px 0 2px}h2{font-size:16px;border-bottom:1px solid #999;padding-bottom:3px;margin-top:26px;text-transform:uppercase;letter-spacing:.05em}.top{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#555}table{border-collapse:collapse;width:100%}td,th{padding:4px 8px;vertical-align:top;border-bottom:1px solid #ddd;text-align:left}footer{margin-top:30px;font-size:11px;color:#555;border-top:1px solid #999;padding-top:6px}@media print{body{margin:0}}';
+      var css=printCss();
       var rows=function(l){return l.length?'<table><tr><th>N°</th><th>Titre</th><th>Juridiction</th><th>État</th></tr>'+l.map(function(d){return '<tr><td>'+e(d.numero)+'</td><td>'+e(d.titre)+'</td><td>'+e(d.juridiction||'—')+'</td><td>'+e(d.statut)+(d.statut==='Classé'&&d.classe_at?' le '+fdate(d.classe_at):'')+(d.motif_classement?' ('+e(d.motif_classement)+')':'')+'</td></tr>'}).join('')+'</table>':'<p>Aucun.</p>'};
-      var html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Fiche '+e(indiv(ds[0]))+'</title><style>'+css+'</style></head><body><div class="top">BruxellesLife · Ville de Bruxelles · Justice</div><h1>Fiche d’individu : '+e(indiv(ds[0]))+'</h1>'+
+      var html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Fiche '+e(indiv(ds[0]))+'</title><style>'+css+'</style></head><body>'+printHead('Fiche d’individu','Dossiers visibles par '+e(who(ME.id)),e(indiv(ds[0])))+'<h1 style="margin-top:6px">'+e(indiv(ds[0]))+'</h1>'+
       '<h2>Résumé</h2><p>'+e(indivSummary(ds))+'</p><p>'+(nxt.length?'Prochaine échéance : '+e(nxt[0].e.type)+' le '+fday(nxt[0].e.date_heure)+' à '+ftime(nxt[0].e.date_heure)+' (dossier '+e(nxt[0].d.numero)+').':'Aucune échéance à venir.')+'</p>'+
       '<h2>Dossiers en cours</h2>'+rows(ds.filter(function(d){return d.statut!=='Classé'}))+'<h2>Dossiers classés</h2>'+rows(ds.filter(function(d){return d.statut==='Classé'}))+
       '<h2>Dossiers liés ('+D0.lk.length+')</h2>'+(D0.lk.length?'<ul>'+D0.lk.map(function(x){return '<li>'+e(x.d.numero)+' — '+e(x.d.titre)+(indiv(x.d)?' ('+e(indiv(x.d))+')':'')+', '+e(x.d.statut)+' — lié à '+e(x.via.join(', '))+'</li>'}).join('')+'</ul>':'<p>Aucun.</p>')+'<h2>Pièces et documents ('+D0.pcs.length+')</h2>'+(D0.pcs.length?'<ul>'+D0.pcs.map(function(p){return '<li>'+e(p.f.name)+' — dossier '+e(p.d.numero)+', '+fdate(p.at)+'</li>'}).join('')+'</ul>':'<p>Aucune pièce.</p>')+
-      '<footer>Fiche éditée le '+fdate(new Date().toISOString())+' par '+e(whoLong(ME.id))+'. Elle ne reprend que les dossiers visibles par son auteur. Univers de jeu de rôle fictif.</footer></body></html>';
+      '<div class="ft">Fiche éditée le '+fdate(new Date().toISOString())+' par '+e(whoLong(ME.id))+'. Elle ne reprend que les dossiers visibles par son auteur. Univers de jeu de rôle fictif.</div></body></html>';
       var w=window.open('','_blank');if(!w){flash('Autorisez les fenêtres pop-up pour exporter.',true);return}w.document.open();w.document.write(html);w.document.close();setTimeout(function(){w.focus();w.print()},400)
     }catch(err){flash(err.message,true)}
   });
@@ -1522,10 +1566,31 @@ function bindAgenda(){
 
 /* ---------- Administration : statistiques et sauvegarde ---------- */
 async function adminExtras(){
-  if(!isSuper())return '';
-  return '<h2 style="font-size:22px;margin:30px 0 8px">Sauvegarde</h2><p class="sub">Télécharge une copie de toutes les données du site dans un fichier.</p><button class="btn ghost" id="bk" type="button">Télécharger la sauvegarde</button>';
+  var out='';
+  if(isAdm()){
+    var tr=[];try{tr=await API.trash()}catch(e){}
+    var lim=Date.now()-30*864e5,keep=[];
+    for(var i=0;i<tr.length;i++){if(tr[i].deleted_at&&new Date(tr[i].deleted_at).getTime()<lim){try{await purgeDossier(tr[i].id)}catch(e){keep.push(tr[i])}}else keep.push(tr[i])}
+    out+='<h2 style="font-size:22px;margin:30px 0 8px">Corbeille ('+keep.length+')</h2><p class="sub">Un dossier supprimé reste ici 30 jours : vous pouvez le restaurer avec ses notes, ses pièces et son journal. Passé ce délai, il disparaît définitivement.</p>'+
+    (keep.length?'<ul class="ech">'+keep.map(function(d){var left=Math.max(0,30-Math.floor((Date.now()-new Date(d.deleted_at).getTime())/864e5));return '<li><label><b>'+esc(d.numero)+'</b> · '+esc(d.titre)+(indiv(d)?' · '+esc(indiv(d)):'')+' — supprimé le '+fdate(d.deleted_at)+(d.deleted_by?' par '+esc(who(d.deleted_by)):'')+' · <em>encore '+left+' jour'+(left>1?'s':'')+'</em></label> <button class="btn small" type="button" data-restore="'+qa(d.id)+'">Restaurer</button> <button class="btn small danger" type="button" data-purge="'+qa(d.id)+'" data-pnum="'+qa(d.numero)+'">Supprimer définitivement</button></li>'}).join('')+'</ul>':'<p class="sub">La corbeille est vide.</p>');
+  }
+  if(isSuper())out+='<h2 style="font-size:22px;margin:30px 0 8px">Sauvegarde</h2><p class="sub">Télécharge une copie de toutes les données du site dans un fichier.</p><button class="btn ghost" id="bk" type="button">Télécharger la sauvegarde</button>';
+  return out;
+}
+async function purgeDossier(id){
+  var cur=await API.dossier(id);
+  for(var li=0;li<((cur&&cur.lies)||[]).length;li++){try{var ot=await API.dossier(cur.lies[li]);if(ot)await API.upd('dossiers',ot.id,{lies:(ot.lies||[]).filter(function(y){return y!==id})})}catch(e2){}}
+  await API.deleteDossier(id);
 }
 function bindAdminExtras(){
+  document.querySelectorAll('[data-restore]').forEach(function(b){b.addEventListener('click',async function(){
+    var id=b.getAttribute('data-restore');
+    try{await API.upd('dossiers',id,{deleted_at:null,deleted_by:null});await API.log(id,'Dossier restauré depuis la corbeille');flash('Dossier restauré.');route(true)}catch(e){flash(e.message,true)}
+  })});
+  document.querySelectorAll('[data-purge]').forEach(function(b){b.addEventListener('click',async function(){
+    if(!confirm('Supprimer définitivement le dossier '+b.getAttribute('data-pnum')+' avec ses notes, ses pièces et son journal ?\n\nCette action est irréversible.'))return;
+    try{await purgeDossier(b.getAttribute('data-purge'));flash('Dossier supprimé définitivement.');route(true)}catch(e){flash(e.message,true)}
+  })});
   var b=$('#bk');if(b)b.addEventListener('click',async function(){try{var o=await API.backup(),bl=new Blob([JSON.stringify(o,null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='Sauvegarde_Justice_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();flash('Sauvegarde téléchargée.')}catch(e){flash(e.message,true)}});
 }
 
@@ -1780,7 +1845,7 @@ async function route(force){
     else if(h==='codes')html=viewCodes();
     else if(h==='guides')html=viewGuides();
     else if(h==='documents'){html=viewDocuments();after=bindDocuments}
-    else if(h==='recherche')html=viewSearch(LASTQ);
+    else if(h==='recherche')html=await viewSearchAll(LASTQ);
     else if((m=h.match(/^messages(?:-(.+))?$/))){CUR_CH=null;html=await viewMessages(m[1]);after=bindMessages}
     else if(h==='annuaire'){html=await viewAnnuaire();after=bindAnnuaire}
     else if(h==='dossiers'){html=await viewDossiers();after=bindDossiers}
@@ -1802,7 +1867,7 @@ async function route(force){
 function bind(){
   var hs=$('#hs');if(hs)hs.addEventListener('submit',function(e){e.preventDefault();gosearch($('#hq').value)});
   var bs=$('#bs');if(bs){bs.addEventListener('submit',function(e){e.preventDefault()});
-    var bq=$('#bq'),tm;bq.addEventListener('input',function(){clearTimeout(tm);tm=setTimeout(function(){LASTQ=bq.value;var p=bq.selectionStart;route(true);setTimeout(function(){var n=$('#bq');if(n){n.focus();try{n.setSelectionRange(p,p)}catch(e){}}},60)},180)});bq.focus()}
+    var bq=$('#bq'),tm;bq.addEventListener('input',function(){clearTimeout(tm);tm=setTimeout(function(){LASTQ=bq.value;var p=bq.selectionStart;route(true).then(function(){var n=$('#bq');if(n){n.focus();try{n.setSelectionRange(p,p)}catch(e){}}})},180)});bq.focus()}
   var tf=$('#tf');if(tf)tf.addEventListener('input',function(){
     var v=norm(tf.value.trim());
     document.querySelectorAll('.toc li').forEach(function(li){li.hidden=v&&li.getAttribute('data-t').indexOf(v)<0});
