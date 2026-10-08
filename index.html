@@ -374,6 +374,21 @@ dl.pen.big{max-width:820px;margin-top:18px}
 #dstar[aria-pressed=true]{background:#FFF1B8;border-color:#C9A227;color:#5a4500}
 .indsub a{color:inherit;text-decoration:none;border-bottom:1px dotted currentColor}
 .indh a{color:inherit;text-decoration:none}.indh a:hover{text-decoration:underline}
+
+.htl{overflow-x:auto;padding:10px 0 14px;margin-top:6px}
+.htl-r{list-style:none;margin:0;padding:0 8px;display:flex;gap:0;align-items:flex-start;min-width:max-content;position:relative}
+.htl-r::before{content:"";position:absolute;left:0;right:0;top:23px;height:2px;background:#D8DDE6}
+.htl-r li{width:210px;flex:0 0 210px;padding:0 8px;position:relative;display:block}
+.htl-r .ti{display:flex;width:30px;height:30px;margin:8px 0 8px;border-radius:50%;background:#fff;border:2px solid #D8DDE6;align-items:center;justify-content:center;font-size:14px;position:relative}
+.htl-r .hc{background:#fff;border:1px solid #D8DDE6;border-radius:8px;padding:8px 10px;font-size:13px;word-wrap:break-word}
+.htl-r time{font-size:11px;color:#5b6677;display:block;margin-bottom:2px}
+.htl-r li.now{width:120px;flex:0 0 120px}.htl-r li.now .ti{background:#0B1F4B;color:#C9A227;border-color:#0B1F4B}.htl-r li.now .hc{border:0;background:none;padding:0 0 0 2px}
+.htl-r li.up .ti{border-color:#C9A227}.htl-r li.up .hc{border-style:dashed}.htl-r li.up.late .ti,.htl-r li.up.late time{border-color:#B3261E;color:#B3261E}
+
+.dts{margin:14px 0 8px;border:1px solid #D8DDE6;border-radius:8px;background:#fff;padding:0 14px}
+.dts>summary{cursor:pointer;padding:11px 0;font-weight:700;font-size:15px;color:#0B1F4B;list-style:none}
+.dts>summary::-webkit-details-marker{display:none}.dts>summary::before{content:"▸ ";color:#C9A227}.dts[open]>summary::before{content:"▾ "}
+.dts[open]{padding-bottom:12px}.dts .ech li{padding:5px 0}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -1155,15 +1170,15 @@ async function viewDossier(id){
   var info='<dl class="pen big"><div><dt>Juridiction</dt><dd>'+esc(d.juridiction||'—')+'</dd></div><div><dt>Parties</dt><dd>'+esc(d.parties||'—')+'</dd></div><div><dt>Ouvert par</dt><dd>'+esc(whoLong(d.created_by))+' · '+fdate(d.created_at)+'</dd></div></dl>';
   /* personnes chargées (ajout / retrait direct) */
   var as=asg(d),restM=approved().filter(function(m){return as.indexOf(m.id)<0});
-  var asgH='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Personnes chargées du dossier ('+as.length+' / 5)</h2><p class="sub">🔒 Seuls les administrateurs, la personne qui a ouvert le dossier et les personnes ci-dessous le voient. Ajoutez ou retirez quelqu’un ici : l’accès suit tout de suite.</p>'+
+  var asgH='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Personnes chargées du dossier ('+as.length+' / 5)</h2>'+
     '<div class="mf" style="margin-top:8px">'+(as.map(function(i){return '<span class="pc"><span class="fchip">👤 '+esc(whoLong(i))+'</span><button class="pdel" type="button" data-unasg="'+qa(i)+'" title="Retirer du dossier" aria-label="Retirer '+qa(who(i))+' du dossier">×</button></span>'}).join('')||'<small>Personne pour l’instant : seuls les administrateurs et celui qui a ouvert le dossier le voient.</small>')+'</div>'+
     '<div class="inl"><select id="as_sel" aria-label="Ajouter une personne au dossier"'+(as.length>=5?' disabled':'')+'>'+(as.length>=5?'<option value="">5 personnes au maximum</option>':'<option value="">Ajouter une personne…</option>'+restM.map(function(m){return '<option value="'+qa(m.id)+'">'+esc(m.nom+' · '+m.grade)+'</option>'}).join(''))+'</select></div></section>';
   /* dossiers liés */
   var lies=(d.lies||[]).map(function(i){return all.filter(function(x){return x.id===i})[0]}).filter(Boolean);
   var canLk=all.filter(function(x){return x.id!==d.id&&(d.lies||[]).indexOf(x.id)<0});
   var liesH='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Dossiers liés ('+lies.length+')</h2>'+
-    (lies.length?'<div class="mf" style="margin-top:8px">'+lies.map(function(x){return '<span class="pc"><a class="fchip" href="#dossier-'+qa(x.id)+'">🔗 '+esc(x.numero)+' · '+esc(x.titre)+(indiv(x)?' · '+esc(indiv(x)):'')+(x.statut==='Classé'?' (classé)':'')+'</a><button class="pdel" type="button" data-unlink="'+qa(x.id)+'" data-lname="'+qa(x.numero)+'" title="Retirer le lien" aria-label="Retirer le lien avec '+qa(x.numero)+'">×</button></span>'}).join('')+'</div>':'<p class="sub">Aucun dossier lié. Reliez ici une affaire connexe (mêmes faits, complices, appel…). Le lien apparaît des deux côtés.</p>')+
-    (canLk.length?'<div class="inl"><select id="lk_sel" aria-label="Lier un autre dossier"><option value="">Lier un autre dossier…</option>'+canLk.map(function(x){return '<option value="'+qa(x.id)+'">'+esc(x.numero+' · '+x.titre+(indiv(x)?' · '+indiv(x):'')+(x.statut==='Classé'?' (classé)':''))+'</option>'}).join('')+'</select></div>':'')+'</section>';
+    (lies.length?'<div class="mf" style="margin-top:8px">'+lies.map(function(x){return '<span class="pc"><a class="fchip" href="#dossier-'+qa(x.id)+'">🔗 '+esc(x.numero)+' · '+esc(x.titre)+(indiv(x)?' · '+esc(indiv(x)):'')+(x.statut==='Classé'?' (classé)':'')+'</a><button class="pdel" type="button" data-unlink="'+qa(x.id)+'" data-lname="'+qa(x.numero)+'" title="Retirer le lien" aria-label="Retirer le lien avec '+qa(x.numero)+'">×</button></span>'}).join('')+'</div>':'')+
+    '<div class="inl"><select id="lk_sel" aria-label="Lier un autre dossier"'+(canLk.length?'':' disabled')+'><option value="">'+(canLk.length?'Lier un autre dossier…':'Aucun autre dossier à lier')+'</option>'+canLk.map(function(x){return '<option value="'+qa(x.id)+'">'+esc(x.numero+' · '+x.titre+(indiv(x)?' · '+indiv(x):'')+(x.statut==='Classé'?' (classé)':''))+'</option>'}).join('')+'</select></div></section>';
   /* chronologie */
   var now=Date.now();
   var ups=(EX.ech||[]).filter(function(e){return !e.done}).sort(function(a,b){return a.date_heure<b.date_heure?-1:1});
@@ -1172,18 +1187,23 @@ async function viewDossier(id){
   notes.forEach(function(n){if(n.body||(n.files&&n.files.length))ev.push({at:n.created_at,by:n.author,ic:'📝',h:'<div class="mb">'+linkify(esc(n.body||'').replace(/\n/g,'<br>'),null)+'</div>'+fileLinks(n.files)})});
   hist.forEach(function(l){if(/^Note ajoutée/.test(l.action))return;ev.push({at:l.created_at,by:l.author,ic:icLog(l.action),h:'<div class="mb">'+esc(l.action)+'</div>'})});
   ev.sort(function(x,y){return x.at<y.at?1:-1});
-  var tl='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Chronologie du dossier</h2><p class="sub">Tout ce qui se passe dans le dossier, au même endroit : échéances, changements d’état, pièces, notes. Le journal est automatique et ne peut être ni modifié ni effacé.</p>'+
+  var tl='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Chronologie du dossier</h2>'+
     '<form id="nf" class="comp" style="margin-bottom:14px"><div id="npend" class="pend"></div><textarea id="nt" rows="3" placeholder="Ajouter une note, un acte, une décision…" aria-label="Nouvelle note"></textarea><div class="comprow"><label class="btn ghost small">📎 Joindre un fichier<input id="nfile" type="file" multiple hidden></label><button class="btn" type="submit">Ajouter à la chronologie</button></div></form>'+
-    (ups.length?'<h3 class="tlh">À venir</h3><ol class="tl up">'+ups.map(function(e){var late=new Date(e.date_heure).getTime()<now;return '<li class="'+(late?'late':'')+'"><span class="ti">📅</span><div><time>'+fday(e.date_heure)+' à '+ftime(e.date_heure)+'</time><div class="mb"><b>'+esc(e.type)+'</b>'+(e.note?' — '+esc(e.note):'')+' · <em>'+reste(e.date_heure)+'</em></div></div></li>'}).join('')+'</ol>':'')+
-    '<h3 class="tlh">Historique</h3><ol class="tl">'+(ev.map(function(x){return '<li><span class="ti">'+x.ic+'</span><div><time>'+fdate(x.at)+' · '+esc(who(x.by))+'</time>'+x.h+'</div></li>'}).join('')||'<li><div><div class="mb">Aucune entrée.</div></div></li>')+'</ol></section>';
+    '<div class="htl" id="htl"><ol class="htl-r">'+
+    ev.slice().reverse().map(function(x){return '<li><span class="ti">'+x.ic+'</span><div class="hc"><time>'+fdate(x.at)+' · '+esc(who(x.by))+'</time>'+x.h+'</div></li>'}).join('')+
+    '<li class="now" id="htlnow"><span class="ti">●</span><div class="hc"><b>Aujourd’hui</b></div></li>'+
+    ups.map(function(e){var late=new Date(e.date_heure).getTime()<now;return '<li class="up'+(late?' late':'')+'"><span class="ti">📅</span><div class="hc"><time>'+fday(e.date_heure)+' à '+ftime(e.date_heure)+'</time><div class="mb"><b>'+esc(e.type)+'</b>'+(e.note?' — '+esc(e.note):'')+'<br><em>'+reste(e.date_heure)+'</em></div></div></li>'}).join('')+
+    '</ol></div></section>';
   return '<div class="wrap page">'+head+'<div class="ph"><div><div class="dnum">'+(isStar(d)?'⭐ ':'')+esc(d.numero)+'</div><h1>'+esc(d.titre)+'</h1>'+(indiv(d)?'<div class="indsub"><a href="'+ficheHref(d)+'" title="Ouvrir la fiche d’individu">👤 '+esc(indiv(d))+'</a></div>':'')+'</div><div class="dact"><select id="dst" aria-label="État du dossier">'+opts(STATUTS,d.statut)+'</select><button class="btn ghost" id="dstar" type="button" aria-pressed="'+(isStar(d)?'true':'false')+'">'+(isStar(d)?'★ Prioritaire':'☆ Prioritaire')+'</button><button class="btn ghost" id="ded" type="button">Modifier</button><button class="btn ghost" id="dpdf" type="button">Exporter en PDF</button><button class="btn ghost" id="dhtml" type="button">Télécharger</button>'+(isAdm()?'<button class="btn danger" id="ddel" type="button">Supprimer</button>':'')+'</div></div>'+
   (d.statut==='Classé'?'<div class="banner"><b>Dossier classé</b>'+(d.classe_at?' le '+fdate(d.classe_at):'')+(d.motif_classement?' — motif : '+esc(d.motif_classement):'')+'. Pour le rouvrir, changez son état.</div>':'')+
   info+autresH+asgH+liesH+EX.top+'<section class="block" style="padding-top:20px"><h2 style="font-size:22px">Résumé des faits</h2><p class="res-txt">'+(esc(d.resume||'Aucun résumé.').replace(/\n/g,'<br>'))+'</p></section>'+
-  '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Pièces ('+pieces.length+')</h2>'+(pieces.length?'<div class="mf" style="margin-top:8px">'+pieces.map(function(p){FREG.push(p.f);var i=FREG.length-1;var can=p.by===ME.id||isAdm()||asg(d).indexOf(ME.id)>=0;var x=can?'<button class="pdel" type="button" data-pn="'+qa(p.nid)+'" data-pi="'+p.idx+'" data-pname="'+qa(p.f.name)+'" title="Retirer cette pièce" aria-label="Retirer la pièce '+qa(p.f.name)+'">×</button>':'';return '<span class="pc">'+(p.f.url&&!p.f.data?'<a class="fchip" href="'+qa(p.f.url)+'" target="_blank" rel="noopener">📄 '+esc(p.f.name)+'</a>':'<a class="fchip" href="#" data-fi="'+i+'">📎 '+esc(p.f.name)+'</a>')+x+((p.f.visas&&p.f.visas.length)?'<small class="visa">✓ visé par '+p.f.visas.map(function(s){return esc(who(s.by))+' le '+fdate(s.at)}).join(' ; ')+'</small>':'')+((MAGIS.indexOf(ME.grade)>=0&&!(p.f.visas||[]).some(function(s){return s.by===ME.id}))?'<button class="visabtn" type="button" data-vn="'+qa(p.nid)+'" data-vi="'+p.idx+'" title="Apposer mon visa">Viser</button>':'')+'</span>'}).join('')+'</div>':'<p class="sub">Aucune pièce jointe. Ajoutez-en dans une note de la chronologie.</p>')+'</section>'+EX.bottom+tl+'</div>';
+  '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Pièces ('+pieces.length+')</h2>'+(pieces.length?'<div class="mf" style="margin-top:8px">'+pieces.map(function(p){FREG.push(p.f);var i=FREG.length-1;var can=p.by===ME.id||isAdm()||asg(d).indexOf(ME.id)>=0;var x=can?'<button class="pdel" type="button" data-pn="'+qa(p.nid)+'" data-pi="'+p.idx+'" data-pname="'+qa(p.f.name)+'" title="Retirer cette pièce" aria-label="Retirer la pièce '+qa(p.f.name)+'">×</button>':'';return '<span class="pc">'+(p.f.url&&!p.f.data?'<a class="fchip" href="'+qa(p.f.url)+'" target="_blank" rel="noopener">📄 '+esc(p.f.name)+'</a>':'<a class="fchip" href="#" data-fi="'+i+'">📎 '+esc(p.f.name)+'</a>')+x+((p.f.visas&&p.f.visas.length)?'<small class="visa">✓ visé par '+p.f.visas.map(function(s){return esc(who(s.by))+' le '+fdate(s.at)}).join(' ; ')+'</small>':'')+((MAGIS.indexOf(ME.grade)>=0&&!(p.f.visas||[]).some(function(s){return s.by===ME.id}))?'<button class="visabtn" type="button" data-vn="'+qa(p.nid)+'" data-vi="'+p.idx+'" title="Apposer mon visa">Viser</button>':'')+'</span>'}).join('')+'</div>':'<p class="sub">Aucune pièce jointe. Ajoutez-en dans une note de la chronologie.</p>')+'</section>'+tl+EX.bottom+'</div>';
 }
 function bindDossier(id){
   if(EDITING){bindDossierForm(id);return}
+  var hw=$('#htl'),hn=$('#htlnow');if(hw&&hn)hw.scrollLeft=Math.max(0,hn.offsetLeft-hw.clientWidth*0.55);
   bindFiles();bindExtras(id);
+  var dt=$('.dts');if(dt)dt.addEventListener('toggle',function(){window.DATES_OPEN=dt.open});
   var st=$('#dst');if(st)st.addEventListener('change',async function(){
     try{
       var d=await API.dossier(id),prev=d.statut,nv=st.value,motif='';
@@ -1278,7 +1298,9 @@ async function indivData(k){
     try{(await API.list('echeances',{dossier_id:d.id})).forEach(function(e){ech.push({e:e,d:d})})}catch(x){}
     try{(await API.notes(d.id)).forEach(function(n){(n.files||[]).forEach(function(f){pcs.push({f:f,d:d,at:n.created_at,by:n.author})})})}catch(x){}
   }
-  return {ds:ds,ech:ech,pcs:pcs};
+  var allD=await API.dossiers(),seen={},lk=[];
+  ds.forEach(function(d){(d.lies||[]).forEach(function(i){if(seen[i]||ds.some(function(x){return x.id===i}))return;var o=allD.filter(function(x){return x.id===i})[0];if(o){seen[i]=1;lk.push({d:o,via:ds.filter(function(x){return (x.lies||[]).indexOf(i)>=0}).map(function(x){return x.numero})})}})});
+  return {ds:ds,ech:ech,pcs:pcs,lk:lk};
 }
 function indivSummary(ds){
   var enc=ds.filter(function(d){return d.statut!=='Classé'}),cl=ds.length-enc.length;
@@ -1301,6 +1323,7 @@ async function viewIndividu(k){
   (nxt.length?'<p class="sub" style="margin-top:8px">📅 <b>Prochaine échéance :</b> '+esc(nxt[0].e.type)+' le '+fday(nxt[0].e.date_heure)+' à '+ftime(nxt[0].e.date_heure)+' ('+reste(nxt[0].e.date_heure)+') — dossier <a href="#dossier-'+qa(nxt[0].d.id)+'">'+esc(nxt[0].d.numero)+'</a>.</p>':'<p class="sub" style="margin-top:8px">Aucune échéance à venir.</p>')+'</section>'+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Dossiers en cours ('+enc.length+')</h2>'+(enc.length?'<div class="dlist">'+enc.map(card).join('')+'</div>':'<p class="sub">Aucun dossier en cours.</p>')+'</section>'+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Dossiers classés ('+cl.length+')</h2>'+(cl.length?'<div class="dlist">'+cl.map(card).join('')+'</div>':'<p class="sub">Aucun dossier classé.</p>')+'</section>'+
+  '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Dossiers liés ('+D0.lk.length+')</h2>'+(D0.lk.length?'<div class="dlist">'+D0.lk.map(function(x){var d=x.d;return '<a class="dcard" href="#dossier-'+qa(d.id)+'"><span class="dnum">'+esc(d.numero)+'</span><b>'+esc(d.titre)+'</b><span>'+(indiv(d)?'👤 '+esc(indiv(d))+' · ':'')+esc(d.juridiction||'')+' · lié à '+esc(x.via.join(', '))+'</span><span class="stt st-'+qa(d.statut)+'">'+esc(d.statut)+'</span></a>'}).join('')+'</div>':'<p class="sub">Aucun dossier lié aux dossiers de cette personne.</p>')+'</section>'+
   (nxt.length>1?'<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Toutes les échéances à venir ('+nxt.length+')</h2><ul class="ech">'+nxt.map(function(x){return '<li><label><b>'+esc(x.e.type)+'</b> · '+fday(x.e.date_heure)+' à '+ftime(x.e.date_heure)+' · <em>'+reste(x.e.date_heure)+'</em> — <a href="#dossier-'+qa(x.d.id)+'">'+esc(x.d.numero)+'</a></label></li>'}).join('')+'</ul></section>':'')+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Pièces et documents ('+pcs.length+')</h2>'+(pcs.length?'<div class="mf" style="margin-top:8px">'+pcs.map(function(p){FREG.push(p.f);var i=FREG.length-1;return '<span class="pc">'+(p.f.url&&!p.f.data?'<a class="fchip" href="'+qa(p.f.url)+'" target="_blank" rel="noopener">📄 '+esc(p.f.name)+'</a>':'<a class="fchip" href="#" data-fi="'+i+'">📎 '+esc(p.f.name)+'</a>')+'<small class="visa">dossier <a href="#dossier-'+qa(p.d.id)+'">'+esc(p.d.numero)+'</a> · '+fdate(p.at)+'</small></span>'}).join('')+'</div>':'<p class="sub">Aucune pièce dans les dossiers de cette personne.</p>')+'</section></div>';
 }
@@ -1314,7 +1337,7 @@ function bindIndividu(k){
       var html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Fiche '+e(indiv(ds[0]))+'</title><style>'+css+'</style></head><body><div class="top">BruxellesLife · Ville de Bruxelles · Justice</div><h1>Fiche d’individu : '+e(indiv(ds[0]))+'</h1>'+
       '<h2>Résumé</h2><p>'+e(indivSummary(ds))+'</p><p>'+(nxt.length?'Prochaine échéance : '+e(nxt[0].e.type)+' le '+fday(nxt[0].e.date_heure)+' à '+ftime(nxt[0].e.date_heure)+' (dossier '+e(nxt[0].d.numero)+').':'Aucune échéance à venir.')+'</p>'+
       '<h2>Dossiers en cours</h2>'+rows(ds.filter(function(d){return d.statut!=='Classé'}))+'<h2>Dossiers classés</h2>'+rows(ds.filter(function(d){return d.statut==='Classé'}))+
-      '<h2>Pièces et documents ('+D0.pcs.length+')</h2>'+(D0.pcs.length?'<ul>'+D0.pcs.map(function(p){return '<li>'+e(p.f.name)+' — dossier '+e(p.d.numero)+', '+fdate(p.at)+'</li>'}).join('')+'</ul>':'<p>Aucune pièce.</p>')+
+      '<h2>Dossiers liés ('+D0.lk.length+')</h2>'+(D0.lk.length?'<ul>'+D0.lk.map(function(x){return '<li>'+e(x.d.numero)+' — '+e(x.d.titre)+(indiv(x.d)?' ('+e(indiv(x.d))+')':'')+', '+e(x.d.statut)+' — lié à '+e(x.via.join(', '))+'</li>'}).join('')+'</ul>':'<p>Aucun.</p>')+'<h2>Pièces et documents ('+D0.pcs.length+')</h2>'+(D0.pcs.length?'<ul>'+D0.pcs.map(function(p){return '<li>'+e(p.f.name)+' — dossier '+e(p.d.numero)+', '+fdate(p.at)+'</li>'}).join('')+'</ul>':'<p>Aucune pièce.</p>')+
       '<footer>Fiche éditée le '+fdate(new Date().toISOString())+' par '+e(whoLong(ME.id))+'. Elle ne reprend que les dossiers visibles par son auteur. Univers de jeu de rôle fictif.</footer></body></html>';
       var w=window.open('','_blank');if(!w){flash('Autorisez les fenêtres pop-up pour exporter.',true);return}w.document.open();w.document.write(html);w.document.close();setTimeout(function(){w.focus();w.print()},400)
     }catch(err){flash(err.message,true)}
@@ -1371,10 +1394,10 @@ async function dossierExtras(d){
     '<form id="lf" class="inl"><select id="l_role" aria-label="Rôle">'+opts(PERS_ROLES,'Prévenu')+'</select><input id="l_nom" placeholder="Nom et prénom" required aria-label="Nom">'+'<button class="btn small" type="submit">Ajouter</button></form></section>';
   /* échéances */
   var es=ech.slice().sort(function(a,b){return a.date_heure<b.date_heure?-1:1});
-  var agenda='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Dates et échéances ('+es.filter(function(e){return !e.done}).length+' à venir)</h2>'+
+  var agenda='<details class="dts"'+(window.DATES_OPEN?' open':'')+'><summary>Dates et échéances <span class="badge">'+es.filter(function(e){return !e.done}).length+' à venir</span></summary>'+
     (es.length?'<ul class="ech">'+es.map(function(e){var late=!e.done&&new Date(e.date_heure).getTime()<now;return '<li class="'+(e.done?'done':late?'late':'')+(e.type==='Fin de peine'&&!e.done?' peine':'')+'"><label><input type="checkbox" data-edone="'+qa(e.id)+'"'+(e.done?' checked':'')+' aria-label="Fait"> <b>'+esc(e.type)+'</b> · '+fday(e.date_heure)+' à '+ftime(e.date_heure)+(e.done?'':' · <em>'+reste(e.date_heure)+'</em>')+(e.note?' — '+esc(e.note):'')+'</label><button class="pdel" type="button" data-erm="'+qa(e.id)+'" data-etype="'+qa(e.type)+'" title="Supprimer" aria-label="Supprimer">×</button></li>'}).join('')+'</ul>':'<p class="sub">Aucune date enregistrée.</p>')+
-    '<form id="ef" class="effrm"><div class="inl"><select id="e_type" aria-label="Type d’échéance"><optgroup label="Délai calculé par le Code">'+DELAIS.map(function(x){return '<option value="d:'+x.k+'">'+esc(x.l+' ('+dlLabel(x)+')')+'</option>'}).join('')+'</optgroup><optgroup label="Date à saisir (fixée par une décision)">'+ECH_TYPES.map(function(t){return '<option value="m:'+qa(t)+'">'+esc(t)+'</option>'}).join('')+'</optgroup></select></div><div class="inl"><label class="inl" id="e_dtl"><span id="e_dtt">Point de départ</span> <input id="e_dt" type="datetime-local" required value="'+dtLocal(new Date())+'"></label><input id="e_note" placeholder="Précision (facultatif)" aria-label="Précision"><button class="btn small" type="submit">Ajouter</button></div><p class="sub" id="e_prev"></p></form></section>';
-  top+=pers+agenda;
+    '<form id="ef" class="effrm"><div class="inl"><select id="e_type" aria-label="Type d’échéance"><optgroup label="Délai calculé par le Code">'+DELAIS.map(function(x){return '<option value="d:'+x.k+'">'+esc(x.l+' ('+dlLabel(x)+')')+'</option>'}).join('')+'</optgroup><optgroup label="Date à saisir (fixée par une décision)">'+ECH_TYPES.map(function(t){return '<option value="m:'+qa(t)+'">'+esc(t)+'</option>'}).join('')+'</optgroup></select></div><div class="inl"><label class="inl" id="e_dtl"><span id="e_dtt">Point de départ</span> <input id="e_dt" type="datetime-local" required value="'+dtLocal(new Date())+'"></label><input id="e_note" placeholder="Précision (facultatif)" aria-label="Précision"><button class="btn small" type="submit">Ajouter</button></div><p class="sub" id="e_prev"></p></form></details>';
+  var bottom=agenda;
   /* étapes */
   var tp=d.type_procedure||'',P=PROCS[tp],et=d.etapes||{};
   var done=P?P.steps.filter(function(s){return et[tp+':'+s[0]]}).length:0;
@@ -1385,7 +1408,7 @@ async function dossierExtras(d){
   var cats={};DOCS.forEach(function(x,i){(cats[x.cat]=cats[x.cat]||[]).push([i,x])});
   var docs='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Créer un document à partir du dossier</h2><p class="sub">Le numéro du dossier, la date, la juridiction, les parties, les personnes chargées et le résumé des faits sont déjà remplis dans le document.</p>'+
     '<div class="inl"><select id="g_doc" aria-label="Modèle de document"><option value="">— Choisir un modèle —</option>'+Object.keys(cats).map(function(c){return '<optgroup label="'+qa(c)+'">'+cats[c].map(function(p){return '<option value="'+p[0]+'">'+esc(p[1].ref+' · '+p[1].title)+'</option>'}).join('')+'</optgroup>'}).join('')+'</select><button class="btn small" id="g_dl" type="button">Télécharger</button><button class="btn small ghost" id="g_att" type="button">Joindre au dossier</button></div></section>';
-  return {top:top,bottom:'',links:links,ech:ech};
+  return {top:top,bottom:bottom,links:links,ech:ech};
 }
 function bindExtras(id){
   var go=function(fn){return async function(e){if(e&&e.preventDefault)e.preventDefault();try{await fn(e)}catch(err){flash(err.message,true)}}};
