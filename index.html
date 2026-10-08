@@ -400,6 +400,8 @@ dl.pen.big{max-width:820px;margin-top:18px}
 .mgrid select,.mgrid input[data-f=fonction]{width:100%;max-width:none;min-width:0;font:inherit;font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink);padding:8px;border:1px solid #cbd3df;border-radius:8px;background:#fff}
 .mgrid .mact{flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink)}
 .mbtn{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+
+.side-empty{font-size:13px;color:#5b6677;padding:6px 12px;margin:0}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -1005,6 +1007,8 @@ function renderBadges(){
   var n=document.querySelector('#nav a[href="#messages"]');if(n){var b=n.querySelector('.bdg');if(b)b.remove();if(tot){n.insertAdjacentHTML('beforeend','<span class="bdg">'+tot+'</span>')}}
   document.querySelectorAll('[data-ch]').forEach(function(a){var c=UNREAD[a.getAttribute('data-ch')]||0;var b=a.querySelector('.bdg');if(b)b.remove();if(c)a.insertAdjacentHTML('beforeend','<span class="bdg">'+c+'</span>')});
 }
+function dmContacts(){try{return JSON.parse(localStorage.getItem('dmc_'+ME.id)||'[]')}catch(e){return []}}
+function dmAdd(id){var l=dmContacts();if(l.indexOf(id)<0){l.push(id);try{localStorage.setItem('dmc_'+ME.id,JSON.stringify(l))}catch(e){}}}
 var CUR_CH=null,LASTSIG='';
 function chanTitle(ch){
   for(var i=0;i<CHANNELS.length;i++)if(CHANNELS[i][0]===ch)return '# '+CHANNELS[i][1];
@@ -1038,8 +1042,12 @@ async function viewMessages(sub){
   var ch=!sub||sub==='general'?'general':(/^dm-/.test(sub)?dmChannel(ME.id,sub.slice(3)):sub);
   if(!/^dm:/.test(ch)&&!CHANNELS.some(function(c){return c[0]===ch&&canChannel(c[0])}))ch='general';
   CUR_CH=ch;LASTSIG='';
+  if(/^dm-/.test(sub))dmAdd(sub.slice(3));
+  var dset={};dmContacts().forEach(function(i){dset[i]=1});
+  try{(await API.recent()).forEach(function(m){if(m.channel&&m.channel.indexOf('dm:')===0&&canChannel(m.channel)){m.channel.slice(3).split('_').forEach(function(i){if(i!==ME.id)dset[i]=1})}})}catch(e){}
+  var dms=approved().filter(function(m){return m.id!==ME.id&&dset[m.id]});
   var side='<div class="side-h">Salons</div>'+CHANNELS.filter(function(c){return canChannel(c[0])}).map(function(c){return '<a href="#messages-'+c[0]+'" data-ch="'+c[0]+'"'+(c[0]===ch?' aria-current="true"':'')+'># '+esc(c[1])+'</a>'}).join('')+
-   '<div class="side-h">Messages privés</div>'+approved().filter(function(m){return m.id!==ME.id}).map(function(m){var c=dmChannel(ME.id,m.id);return '<a href="#messages-dm-'+qa(m.id)+'" data-ch="'+qa(c)+'"'+(c===ch?' aria-current="true"':'')+'><span>'+esc(m.nom)+'</span><small>'+esc(m.grade||'')+'</small></a>'}).join('');
+   '<div class="side-h">Messages privés</div>'+(dms.length?dms:[]).map(function(m){var c=dmChannel(ME.id,m.id);return '<a href="#messages-dm-'+qa(m.id)+'" data-ch="'+qa(c)+'"'+(c===ch?' aria-current="true"':'')+'><span>'+esc(m.nom)+'</span><small>'+esc(m.grade||'')+'</small></a>'}).join('')+(dms.length?'':'<p class="side-empty">Aucune conversation. Cliquez sur « Écrire » dans l’<a href="#annuaire">Annuaire</a> pour en démarrer une.</p>');
   var dcats={},dorder=[];DOCS.forEach(function(d,i){if(!dcats[d.cat]){dcats[d.cat]=[];dorder.push(d.cat)}dcats[d.cat].push([i,d])});
   var docsSel='<select id="dsel" aria-label="Joindre un document type"><option value="">Joindre un document type…</option>'+dorder.map(function(c){return '<optgroup label="'+qa(c)+'">'+dcats[c].map(function(p){return '<option value="'+p[0]+'">'+esc(p[1].ref+' — '+p[1].title)+'</option>'}).join('')+'</optgroup>'}).join('')+'</select>';
   var h='<div class="wrap page wide"><div class="msgwrap"><aside class="msgside">'+side+'</aside><section class="msgmain"><header class="msghead"><b>'+esc(chanTitle(ch))+'</b></header><div id="thread" class="thread" aria-live="polite"><p class="empty">Chargement…</p></div>'+
