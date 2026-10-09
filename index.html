@@ -439,6 +439,8 @@ dl.pen.big{max-width:820px;margin-top:18px}
 
 .fchip.vw{background:#EEF3FB;border-color:#9DB4DB}
 @media print{body.printing>*:not(.edmod){display:none!important}body.printing .edmod{position:static;background:none;padding:0;display:block}body.printing .edbox{max-height:none;box-shadow:none;padding:0;max-width:none}body.printing .edbox>*:not(.edpage){display:none!important}body.printing .edpage{overflow:visible;background:none;padding:0}body.printing .edpage section.docx{box-shadow:none}}
+
+.msgside .dmx{margin-left:auto;background:none;border:0;color:var(--muted);font-size:16px;line-height:1;cursor:pointer;padding:0 4px;border-radius:4px}.msgside .dmx:hover{background:#f3d9d9;color:#a00}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -1163,7 +1165,10 @@ function renderBadges(){
   document.querySelectorAll('[data-ch]').forEach(function(a){var c=UNREAD[a.getAttribute('data-ch')]||0;var b=a.querySelector('.bdg');if(b)b.remove();if(c)a.insertAdjacentHTML('beforeend','<span class="bdg">'+c+'</span>')});
 }
 function dmContacts(){try{return JSON.parse(localStorage.getItem('dmc_'+ME.id)||'[]')}catch(e){return []}}
-function dmAdd(id){var l=dmContacts();if(l.indexOf(id)<0){l.push(id);try{localStorage.setItem('dmc_'+ME.id,JSON.stringify(l))}catch(e){}}}
+function dmHid(){try{return JSON.parse(localStorage.getItem('dmh_'+ME.id)||'{}')}catch(e){return {}}}
+function dmHide(id){var h=dmHid();h[id]=Date.now();try{localStorage.setItem('dmh_'+ME.id,JSON.stringify(h))}catch(e){}}
+function dmUnhide(id){var h=dmHid();if(h[id]){delete h[id];try{localStorage.setItem('dmh_'+ME.id,JSON.stringify(h))}catch(e){}}}
+function dmAdd(id){dmUnhide(id);var l=dmContacts();if(l.indexOf(id)<0){l.push(id);try{localStorage.setItem('dmc_'+ME.id,JSON.stringify(l))}catch(e){}}}
 var CUR_CH=null,LASTSIG='';
 function chanTitle(ch){
   for(var i=0;i<CHANNELS.length;i++)if(CHANNELS[i][0]===ch)return '# '+CHANNELS[i][1];
@@ -1212,13 +1217,14 @@ async function viewMessages(sub){
   if(!/^dm:/.test(ch)&&!CHANNELS.some(function(c){return c[0]===ch&&canChannel(c[0])})){var fc=CHANNELS.filter(function(c){return canChannel(c[0])})[0];ch=fc?fc[0]:'general'}
   CUR_CH=ch;LASTSIG='';
   if(/^dm-/.test(sub))dmAdd(sub.slice(3));
-  var dset={};dmContacts().forEach(function(i){dset[i]=1});
-  try{(await API.recent()).forEach(function(m){if(m.channel&&m.channel.indexOf('dm:')===0&&canChannel(m.channel)){m.channel.slice(3).split('_').forEach(function(i){if(i!==ME.id)dset[i]=1})}})}catch(e){}
+  var dset={},lastAt={};dmContacts().forEach(function(i){dset[i]=1});
+  try{(await API.recent()).forEach(function(m){if(m.channel&&m.channel.indexOf('dm:')===0&&canChannel(m.channel)){m.channel.slice(3).split('_').forEach(function(i){if(i!==ME.id){dset[i]=1;var t=new Date(m.created_at).getTime();if(!lastAt[i]||t>lastAt[i])lastAt[i]=t}})}})}catch(e){}
+  var hid=dmHid();Object.keys(hid).forEach(function(i){if(!(lastAt[i]&&lastAt[i]>hid[i]))delete dset[i]});
   var dms=approved().filter(function(m){return m.id!==ME.id&&dset[m.id]});
   var chLink=function(c){return '<a href="#messages-'+c[0]+'" data-ch="'+c[0]+'"'+(c[0]===ch?' aria-current="true"':'')+'># '+esc(c[1])+'</a>'};
   var jch=CHANNELS.filter(function(c){return !isPolChan(c[0])&&canChannel(c[0])}),pch=CHANNELS.filter(function(c){return isPolChan(c[0])&&canChannel(c[0])});
   var side=(jch.length?'<div class="side-h">Salons</div>'+jch.map(chLink).join(''):'')+(pch.length?'<div class="side-h">Police · demandes</div>'+pch.map(chLink).join(''):'')+
-   '<div class="side-h">Messages privés</div>'+(dms.length?dms:[]).map(function(m){var c=dmChannel(ME.id,m.id);return '<a href="#messages-dm-'+qa(m.id)+'" data-ch="'+qa(c)+'"'+(c===ch?' aria-current="true"':'')+'><span>'+esc(m.nom)+'</span><small>'+esc(m.grade||'')+'</small></a>'}).join('')+(dms.length?'':'<p class="side-empty">Aucune conversation. Cliquez sur « Écrire » dans l’<a href="#annuaire">Annuaire</a> pour en démarrer une.</p>');
+   '<div class="side-h">Messages privés</div>'+(dms.length?dms:[]).map(function(m){var c=dmChannel(ME.id,m.id);return '<a href="#messages-dm-'+qa(m.id)+'" data-ch="'+qa(c)+'"'+(c===ch?' aria-current="true"':'')+'><span>'+esc(m.nom)+'</span><button type="button" class="dmx" data-dmx="'+qa(m.id)+'" title="Retirer cette conversation de la liste (elle revient avec un nouveau message, ou via l’Annuaire)" aria-label="Retirer de la liste">×</button><small>'+esc(m.grade||'')+'</small></a>'}).join('')+(dms.length?'':'<p class="side-empty">Aucune conversation. Cliquez sur « Écrire » dans l’<a href="#annuaire">Annuaire</a> pour en démarrer une.</p>');
   var dcats={},dorder=[];DOCS.forEach(function(d,i){if(!dcats[d.cat]){dcats[d.cat]=[];dorder.push(d.cat)}dcats[d.cat].push([i,d])});
   var pol=isPolChan(ch);if(isPolice())dorder=dorder.filter(function(c){return c==='Police'});
   var docsSel='<select id="dsel" aria-label="Joindre un document type"><option value="">'+(pol?'Faire une demande / joindre un modèle…':'Joindre un document type…')+'</option>'+dorder.map(function(c){return '<optgroup label="'+qa(c)+'">'+dcats[c].map(function(p){return '<option value="'+p[0]+'">'+esc(p[1].ref+' — '+p[1].title)+'</option>'}).join('')+'</optgroup>'}).join('')+'</select>';
@@ -1228,6 +1234,7 @@ async function viewMessages(sub){
   return h;
 }
 function bindMessages(){
+  document.querySelectorAll('[data-dmx]').forEach(function(b){b.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();dmHide(b.getAttribute('data-dmx'));var first=CHANNELS.filter(function(c){return canChannel(c[0])})[0];location.hash='messages-'+(first?first[0]:'general');route(true)})});
   var form=$('#comp');if(!form)return;
   var ta=$('#mt'),pend=$('#pend');
   var draw=function(){pend.innerHTML=pendHtml();pend.querySelectorAll('[data-rm]').forEach(function(b){b.addEventListener('click',function(){PEND.splice(+b.getAttribute('data-rm'),1);draw()})})};
