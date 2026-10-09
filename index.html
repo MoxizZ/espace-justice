@@ -235,6 +235,27 @@ footer .flinks a{color:#fff;margin-right:14px}
 .svmsg{max-width:640px;border-left:4px solid #B8912F;background:#FBF6E4;border-radius:8px;padding:14px 16px;margin:10px 0}.svmsg small{display:block;color:var(--muted);margin-top:6px}
 .plerr{color:var(--red);font-weight:600;min-height:20px}.plok{background:#EAF6EC;border:1px solid #9BCBA3;border-radius:12px;padding:20px 22px;max-width:640px}.plok b.num{font-size:22px;font-family:var(--serif)}
 .plform button[type=submit]{background:var(--navy);color:#fff;border:0;border-radius:10px;padding:13px 22px;font-size:16px;font-weight:700;cursor:pointer}.plform button[disabled]{opacity:.5;cursor:not-allowed}
+.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{background:#fff;border:1px solid var(--line,#dde2ee);border-radius:999px;padding:9px 16px;text-decoration:none;color:#0B1F4B;font-weight:600}.chip span{color:#B8912F;margin-right:8px;font-family:var(--serif)}.g-three{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}@media(max-width:700px){.g-three{grid-template-columns:1fr}}
+[hidden]{display:none!important}.joinban{display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:#fff;border:1px solid #dde2ee;border-left:5px solid #B8912F;border-radius:12px;padding:16px 20px;margin:22px 0 -8px}.joinban b{font-family:var(--serif);font-size:19px;color:#0B1F4B}.joinban p{margin:4px 0 0;color:#5b6479;font-size:14.5px}.joinban .btn{background:#0B1F4B;color:#fff;padding:10px 20px;border-radius:10px;font-weight:700;text-decoration:none;white-space:nowrap}
+.back{font-weight:600;text-decoration:none}.steps4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.step4{background:#fff;border:1px solid #dde2ee;border-radius:12px;padding:16px}.step4 i{display:inline-flex;width:28px;height:28px;border-radius:50%;background:#0B1F4B;color:#F1D98B;align-items:center;justify-content:center;font-style:normal;font-weight:700;margin-bottom:8px}.step4 b{display:block;font-family:var(--serif);margin-bottom:4px}.step4 span{color:#5b6479;font-size:14px}.plhero button.btn{cursor:pointer;font-family:inherit}@media(max-width:800px){.steps4{grid-template-columns:1fr 1fr}}@media(max-width:520px){.steps4{grid-template-columns:1fr}}
+.hside{display:grid;gap:18px}.joinbtn{display:flex;justify-content:space-between;align-items:center;gap:12px;background:rgba(255,255,255,.1);color:#fff;border-radius:12px;padding:10px 12px 10px 18px;text-decoration:none;border:1px solid #F1D98B;box-shadow:0 6px 16px rgba(0,0,0,.3);transition:transform .15s}
+.joinbtn b{font-family:var(--serif);font-size:17px}
+.joinbtn .jgo{background:#fff;color:#0B1F4B;font-weight:800;border-radius:999px;padding:7px 14px;font-size:13.5px;white-space:nowrap}
+.joinbtn .jgo i{font-style:normal;display:inline-block;transition:transform .15s}
+.joinbtn:hover{transform:translateY(-2px);background:rgba(255,255,255,.16)}.joinbtn:hover .jgo i{transform:translateX(4px)}
+.rjhero{background:linear-gradient(135deg,#0B1F4B 0%,#1B2F77 70%,#2B4AA0 130%);color:#fff;border-radius:20px;padding:44px 40px;margin:6px 0 10px;box-shadow:0 14px 34px rgba(11,31,75,.28);position:relative;overflow:hidden}
+.rjhero:after{content:"⚖";position:absolute;right:30px;top:-30px;font-size:230px;color:rgba(255,255,255,.07)}
+.rjhero small{letter-spacing:.16em;font-weight:700;color:#F1D98B;font-size:12.5px}.rjhero h1{font-family:var(--serif);font-size:42px;line-height:1.1;margin:10px 0 14px;max-width:640px;color:#fff}.rjhero p{max-width:560px;color:#DDE4F5;font-size:17px;line-height:1.55;margin:0 0 24px}.rjhero p strong{color:#fff}
+.rjact{display:flex;gap:14px;flex-wrap:wrap;align-items:center;position:relative;z-index:1}.rjbtn{background:#fff;color:#0B1F4B;border:0;border-radius:999px;padding:15px 30px;font-weight:800;font-size:17px;cursor:pointer;font-family:inherit;box-shadow:0 6px 18px rgba(0,0,0,.3);transition:transform .15s}.rjbtn:hover{transform:translateY(-2px);background:#F1D98B}
+.rjpdf{color:#fff;font-weight:600;text-decoration:none;border:1px solid rgba(255,255,255,.4);border-radius:999px;padding:13px 22px}.rjpdf:hover{background:rgba(255,255,255,.12)}.rjhero .rjnote{margin:18px 0 0;background:rgba(241,217,139,.18);border:1px solid #F1D98B;border-radius:10px;padding:10px 14px;font-size:15px;color:#fff;position:relative;z-index:1}
+.rjh{font-family:var(--serif);font-size:26px;margin:34px 0 14px}
+.rjsteps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;position:relative}.rjstep{background:#fff;border:1px solid #dde2ee;border-radius:16px;padding:20px 18px;position:relative}.rjstep:not(:last-child):after{content:"›";position:absolute;right:-13px;top:50%;transform:translateY(-50%);font-size:26px;color:#B8912F;z-index:2;font-weight:700}
+.rjstep.on{border-color:#B8912F;box-shadow:0 8px 22px rgba(184,145,47,.25)}.rjstep .ic,.rjvoie .ic{width:48px;height:48px;border-radius:14px;background:#EEF1F8;display:flex;align-items:center;justify-content:center;font-size:25px;margin-bottom:10px}
+.rjstep em{display:block;font-style:normal;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:#B8912F;font-weight:700}.rjstep b,.rjvoie b{display:block;font-family:var(--serif);font-size:19px;margin:3px 0 5px;color:#0B1F4B}.rjstep span,.rjvoie span{color:#5b6479;font-size:14.5px;line-height:1.45}
+.rjvoies{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.rjvoie{background:#fff;border:1px solid #dde2ee;border-top:4px solid #0B1F4B;border-radius:16px;padding:22px 20px;position:relative}.rjvoie:nth-child(2){border-top-color:#B8912F}.rjvoie:nth-child(3){border-top-color:#2B4AA0}.rib{position:absolute;right:14px;top:14px;background:#0B1F4B;color:#F1D98B;font-style:normal;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px}
+.rjfast{margin-top:16px;background:#FBF6E4;border:1px solid #E7D79A;border-radius:14px;padding:16px 20px;display:grid;gap:4px}.rjfast b{color:#0B1F4B}.rjfast span{color:#4b5470;font-size:15px}
+.rjcta{margin:30px 0 8px;background:#0B1F4B;border-radius:18px;padding:26px 30px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.rjcta b{font-family:var(--serif);font-size:24px;color:#fff}
+@media(max-width:860px){.rjsteps{grid-template-columns:1fr 1fr}.rjstep:after{display:none}.rjvoies{grid-template-columns:1fr}.rjhero{padding:30px 22px}.rjhero h1{font-size:32px}}@media(max-width:520px){.rjsteps{grid-template-columns:1fr}}
 /* ===== Espace interne ===== */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font:inherit;font-weight:600;font-size:15px;padding:10px 18px;border-radius:8px;border:1px solid var(--navy);background:var(--navy);color:#fff;cursor:pointer;text-decoration:none}
 .btn:hover{filter:brightness(1.15)}.btn:disabled{opacity:.55;cursor:default}
@@ -459,6 +480,14 @@ dl.pen.big{max-width:820px;margin-top:18px}
 
 .msgside .dmx{margin-left:auto;background:none;border:0;color:var(--muted);font-size:16px;line-height:1;cursor:pointer;padding:0 4px;border-radius:4px}.msgside .dmx:hover{background:#f3d9d9;color:#a00}
 .plcard{margin-top:10px;padding:10px 12px;border:1px dashed #B8912F;background:#FBF6E4;border-radius:8px}.plcard.done{border-style:solid;border-color:#9BCBA3;background:#EAF6EC}.plcard small{display:block;margin-top:6px;color:#555}
+.jtools{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 10px;align-items:center}.jtools input[type=search]{flex:1 1 260px;min-width:0;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px}.jtools select{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.jlist{display:grid;gap:10px}.jcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}.jcard[open]{border-color:var(--navy)}
+.jcard summary{display:grid;grid-template-columns:150px minmax(0,1.5fr) minmax(0,1fr) auto;gap:6px 16px;align-items:center;padding:14px 16px;cursor:pointer;list-style:none}.jcard summary::-webkit-details-marker{display:none}
+.jcard summary b{font-family:var(--serif);font-size:18px}.jdate{color:var(--muted);font-size:14px}.jsub{color:var(--muted);font-size:14px}
+.jdec{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:99px;padding:3px 12px;justify-self:end;background:var(--soft);color:var(--navy)}.jc-c{background:#FDECEC;color:#8B1A1A}.jc-r{background:#E6F4EA;color:#1E6B3A}
+.jbody{padding:4px 18px 16px;border-top:1px solid var(--line)}.jbody dl{display:grid;grid-template-columns:170px 1fr;gap:8px 16px;margin:12px 0}.jbody dt{font-weight:700;color:var(--navy)}.jbody dd{margin:0}.jmot{white-space:pre-wrap}
+.jact{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:760px){.jcard summary{grid-template-columns:1fr}.jdec{justify-self:start}.jbody dl{grid-template-columns:1fr}}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -526,6 +555,7 @@ var GKEYS=['avocat','juge','instruction','procureur','citoyen','chef'];
 var CHANNELS=[['general','Justice · tous',null],['pol-parquet','Police ↔ Parquet',['Police','Parquet']],['pol-instruction','Police ↔ Instruction',['Police','Instruction']],['pol-tribunal','Police ↔ Tribunal',['Police','Siège','Greffe']],['parquet','Parquet',['Parquet']],['siege','Siège (juges)',['Siège','Greffe']],['instruction','Instruction',['Instruction','Greffe']],['barreau','Barreau (avocats)',['Barreau']]];
 function isDemCh(ch){ch=String(ch||'');return ch.indexOf('dm:')===0||ch.indexOf('pol-')===0}
 function ROLE_RANGER(){return !!ME&&(isAdm()||(ME.service!=='Police'&&ME.service!=='Barreau'&&!/Avocat|Bâtonnier/.test(ME.grade||'')))}
+function isJuge(){return !!ME&&(isAdm()||/^(Juge|Juge en chef)$/.test(ME.grade||''))}
 function isAdm(){return !!ME&&(ME.role==='admin'||ME.role==='super')}
 /* Police : « Agent de police » = annuaire, messagerie (salons Police) et documents ; « OPJ » = en plus, lecture seule des dossiers dont il est chargé */
 function isPolice(){return !!ME&&ME.service==='Police'&&!isAdm()}
@@ -864,10 +894,11 @@ if(!LIVE){
     async ins(name,row){
       var k=TK[name]||name;ST[k]=ST[k]||[];
       if((name==='annonces')&&!isAdm())throw new Error('Réservé aux administrateurs.');
+      if(name==='jugements'&&!isJuge())throw new Error('Réservé aux juges.');
       var o=Object.assign({id:uid(),created_at:nowIso(),created_by:ME.id},row);ST[k].push(o);save();return o;
     },
     async upd(name,id,f){var k=TK[name]||name;var r=(ST[k]||[]).filter(function(x){return x.id===id})[0];if(!r)throw new Error('Introuvable.');Object.assign(r,f);save();return r},
-    async del(name,id){var k=TK[name]||name;if((name==='annonces')&&!isAdm())throw new Error('Réservé aux administrateurs.');ST[k]=(ST[k]||[]).filter(function(x){return x.id!==id});save()},
+    async del(name,id){var k=TK[name]||name;if((name==='annonces')&&!isAdm())throw new Error('Réservé aux administrateurs.');if(name==='jugements'){var jr=(ST[k]||[]).filter(function(x){return x.id===id})[0];if(jr&&!isAdm()&&jr.created_by!==ME.id)throw new Error('Seul l’auteur ou un administrateur peut supprimer ce jugement.')}ST[k]=(ST[k]||[]).filter(function(x){return x.id!==id});save()},
     async backup(){return {exporte_le:nowIso(),exporte_par:ME.email||ME.nom,donnees:JSON.parse(JSON.stringify(ST))}},
     async reset(){localStorage.removeItem(KEY);sessionStorage.removeItem('demo_user');location.reload()}
   };
@@ -925,7 +956,7 @@ if(!LIVE){
     async addNote(id,body,files){chk(await SB.from('dossier_notes').insert({dossier_id:id,author:ME.id,body:body,files:files||[]}));await SB.from('dossiers').update({updated_at:nowIso()}).eq('id',id)},
     /* opérations génériques sur les tables annexes */
     async list(name,eq){var q=SB.from(name).select('*');if(eq)for(var k in eq)q=q.eq(k,eq[k]);return chk(await q.order('created_at',{ascending:true}))},
-    async ins(name,row){var cr=['echeances','annonces'].indexOf(name)>=0;return chk(await SB.from(name).insert(cr?Object.assign({},row,{created_by:ME.id}):row).select().single())},
+    async ins(name,row){var cr=['echeances','annonces','jugements'].indexOf(name)>=0;return chk(await SB.from(name).insert(cr?Object.assign({},row,{created_by:ME.id}):row).select().single())},
     async upd(name,id,f){var r=await SB.from(name).update(f).eq('id',id).select();if(r.error)throw new Error(r.error.message);if(!r.data||!r.data.length)throw new Error('Modification refusée.');return r.data[0]},
     async del(name,id){var r=await SB.from(name).delete().eq('id',id).select();if(r.error)throw new Error(r.error.message);if(!r.data||!r.data.length)throw new Error('Suppression refusée.')},
     async backup(){var out={exporte_le:nowIso(),exporte_par:ME.email,donnees:{}};var ts=['profiles','dossiers','dossier_notes','dossier_log','echeances','dossier_personnes','annonces','messages'];for(var i=0;i<ts.length;i++){var r=await SB.from(ts[i]).select('*');out.donnees[ts[i]]=r.error?{erreur:r.error.message}:r.data}return out},
@@ -1475,7 +1506,9 @@ function bindDossier(id){
       else if(prev==='Classé'){d.classe_at=null;d.motif_classement=null}
       d.statut=nv;delete d.lies;delete d.etoile;await API.saveDossier(d);
       await API.log(id,nv==='Classé'?'Dossier classé'+(motif?' — motif : '+motif:''):(prev==='Classé'?'Dossier rouvert (état : '+nv+')':'État : «\u00a0'+prev+'\u00a0» → «\u00a0'+nv+'\u00a0»'));
-      flash(nv==='Classé'?'Dossier classé. Il est maintenant dans les archives.':'État mis à jour.');route(true)
+      flash(nv==='Classé'?'Dossier classé. Il est maintenant dans les archives.':'État mis à jour.');
+      if((nv==='Classé'||nv==='Jugé')&&prev!==nv&&isJuge()&&await jugementPrompt(id))return;
+      route(true)
     }catch(e){flash(e.message,true)}
   });
   var xp=async function(kind){
@@ -1724,7 +1757,7 @@ async function dossierExtras(d){
   var agenda='<details class="dts"'+(window.DATES_OPEN?' open':'')+'><summary>Dates et échéances <span class="badge">'+es.filter(function(e){return !e.done}).length+' à venir</span></summary>'+
     (es.length?'<ul class="ech">'+es.map(function(e){var late=!e.done&&new Date(e.date_heure).getTime()<now;return '<li class="'+(e.done?'done':late?'late':'')+(e.type==='Fin de peine'&&!e.done?' peine':'')+'"><label><input type="checkbox" data-edone="'+qa(e.id)+'"'+(e.done?' checked':'')+' aria-label="Fait"> <b>'+esc(e.type)+'</b> · '+fday(e.date_heure)+' à '+ftime(e.date_heure)+(e.done?'':' · <em>'+reste(e.date_heure)+'</em>')+(e.note?' — '+esc(e.note):'')+'</label><button class="pdel" type="button" data-erm="'+qa(e.id)+'" data-etype="'+qa(e.type)+'" title="Supprimer" aria-label="Supprimer">×</button></li>'}).join('')+'</ul>':'<p class="sub">Aucune date enregistrée.</p>')+
     '<form id="ef" class="effrm"><div class="inl"><select id="e_type" aria-label="Type d’échéance"><optgroup label="Délai calculé par le Code">'+DELAIS.map(function(x){return '<option value="d:'+x.k+'">'+esc(x.l+' ('+dlLabel(x)+')')+'</option>'}).join('')+'</optgroup><optgroup label="Date à saisir (fixée par une décision)">'+ECH_TYPES.map(function(t){return '<option value="m:'+qa(t)+'">'+esc(t)+'</option>'}).join('')+'</optgroup></select></div><div class="inl"><label class="inl" id="e_dtl"><span id="e_dtt">Point de départ</span> <input id="e_dt" type="datetime-local" required value="'+dtLocal(new Date())+'"></label><input id="e_note" placeholder="Précision (facultatif)" aria-label="Précision"><button class="btn small" type="submit">Ajouter</button></div><p class="sub" id="e_prev"></p></form></details>';
-  var bottom=agenda;
+  var bottom='';
   /* étapes */
   var tp=d.type_procedure||'',P=PROCS[tp],et=d.etapes||{};
   var done=P?P.steps.filter(function(s){return et[tp+':'+s[0]]}).length:0;
@@ -1734,7 +1767,8 @@ async function dossierExtras(d){
   /* documents */
   var cats={};DOCS.forEach(function(x,i){(cats[x.cat]=cats[x.cat]||[]).push([i,x])});
   var docs='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Créer un document à partir du dossier</h2><p class="sub">Le numéro du dossier, la date, la juridiction, les parties, les personnes chargées et le résumé des faits sont déjà remplis dans le document.</p>'+
-    '<div class="inl"><select id="g_doc" aria-label="Modèle de document"><option value="">— Choisir un modèle —</option>'+Object.keys(cats).map(function(c){return '<optgroup label="'+qa(c)+'">'+cats[c].map(function(p){return '<option value="'+p[0]+'">'+esc(p[1].ref+' · '+p[1].title)+'</option>'}).join('')+'</optgroup>'}).join('')+'</select><button class="btn small" id="g_dl" type="button">Télécharger</button><button class="btn small ghost" id="g_att" type="button">Joindre au dossier</button></div></section>';
+    '<div class="inl"><select id="g_doc" aria-label="Modèle de document"><option value="">— Choisir un modèle —</option>'+catOrder(Object.keys(cats)).map(function(c){return '<optgroup label="'+qa(c)+'">'+cats[c].map(function(p){return '<option value="'+p[0]+'">'+esc(p[1].ref+' · '+p[1].title)+'</option>'}).join('')+'</optgroup>'}).join('')+'</select><button class="btn small" id="g_dl" type="button">Télécharger</button><button class="btn small ghost" id="g_att" type="button">Joindre au dossier</button></div></section>';
+  bottom=agenda+(isROD()?'':docs);
   return {top:top,bottom:bottom,links:links,ech:ech};
 }
 function bindExtras(id){
@@ -1776,6 +1810,7 @@ function bindExtras(id){
     await API.upd('dossier_notes',n.id,{files:fs});await API.log(id,'Pièce visée : '+fs[ix].name);flash('Pièce visée.');route(true)}))});
 }
 
+function catOrder(ks){var g=ME.grade||'',mine=/instruction/i.test(g)?'Juge d’instruction':/Procureur|Substitut/.test(g)?'Parquet':/^Juge|Greffier/.test(g)?'Tribunal et Greffe':/Avocat|Bâtonnier/.test(g)?'Avocat et justiciable':ME.service==='Police'?'Police':'';return ks.slice().sort(function(a,b){return (b===mine)-(a===mine)})}
 /* ---------- Création d'un document pré-rempli ---------- */
 function xesc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 async function fillDoc(doc,d,links){
@@ -1785,6 +1820,7 @@ async function fillDoc(doc,d,links){
   xml=xml.replace(/N° de dossier : _+/,'N° de dossier : '+xesc(d.numero));
   xml=xml.replace(/Date : _+ \/ _+ \/ _+/,'Date : '+dd);
   xml=xml.replace(/Fait à _+, le _+ \/ _+ \/ _+/,'Fait à Bruxelles, le '+dd);
+  xml=fillFields(xml,d,dd);
   var L=[['Dossier',d.numero+' · '+d.titre],['Juridiction',d.juridiction||'—'],['Parties',d.parties||'—'],['Chargés du dossier',asg(d).length?asg(d).map(who).join(', '):'—']];
   if(links&&links.length)L.push(['Personnes concernées',links.map(function(l){return l.role+' : '+l.nom}).join(' ; ')]);
   if(d.resume)L.push(['Faits',String(d.resume).replace(/\s+/g,' ').slice(0,900)]);
@@ -1796,6 +1832,48 @@ async function fillDoc(doc,d,links){
   xml=xml.slice(0,at)+block+xml.slice(at);
   zip.file('word/document.xml',xml);
   return zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+}
+
+/* remplit les cases « Nom / Prénom / Qualité… » du modèle : le magistrat qui crée le document (première rubrique qui lui correspond) et l’individu du dossier */
+function fillFields(xml,d,dd){
+  var W='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  var doc=new DOMParser().parseFromString(xml,'application/xml');if(doc.getElementsByTagName('parsererror').length)return xml;
+  var txt=function(n){var t=n.getElementsByTagNameNS(W,'t'),o='';for(var i=0;i<t.length;i++)o+=t[i].textContent;return o.replace(/\s+/g,' ').trim()};
+  var up=function(x){return x.toUpperCase().replace(/’/g,"'")};
+  var g=ME.grade||'',au=null;
+  if(/instruction/i.test(g))au=/JUGE D.INSTRUCTION/;else if(/^Juge/.test(g))au=/JUGE|MAGISTRAT|TRIBUNAL/;else if(/Procureur|Substitut/.test(g))au=/MAGISTRAT|PROCUREUR/;else if(/Avocat|Bâtonnier/.test(g))au=/AVOCAT/;else if(/Greffier/.test(g))au=/GREFFIER/;else if(ME.service==='Police')au=/SERVICE DEMANDEUR|AGENT|OPJ/;
+  var noAu=/SAISI|VIS[ÉE]E|DESTINATAIRE|PLAIGNANT|VICTIME|MIS EN CAUSE|INCULP|PR[ÉE]VENU|REQU[ÉE]RANT/;
+  var inRx=/INDIVIDU|INCULP|PR[ÉE]VENU|MIS EN CAUSE|PERSONNE VIS|SUSPECT|ACCUS|CONDAMN/;
+  var parts=String(ME.nom||'').trim().split(/\s+/),pre=parts.length>1?parts[0]:'',nm=parts.length>1?parts.slice(1).join(' '):parts[0]||'';
+  var sec='',auSec=null;
+  var setCell=function(tc,v){
+    if(!v)return;var ps=tc.getElementsByTagNameNS(W,'p');var p=ps[0];if(!p){p=doc.createElementNS(W,'w:p');tc.appendChild(p)}
+    var rs=tc.getElementsByTagNameNS(W,'r'),r=doc.createElementNS(W,'w:r'),pr=doc.createElementNS(W,'w:rPr'),sz=doc.createElementNS(W,'w:sz');sz.setAttributeNS(W,'w:val','18');pr.appendChild(sz);r.appendChild(pr);
+    var t=doc.createElementNS(W,'w:t');t.setAttribute('xml:space','preserve');t.textContent=v;r.appendChild(t);p.appendChild(r)};
+  var body=doc.getElementsByTagNameNS(W,'body')[0];
+  var walk=function(n){
+    for(var c=n.firstChild;c;c=c.nextSibling){
+      if(c.nodeType!==1)continue;
+      if(c.localName==='tbl'){
+        var rows=c.getElementsByTagNameNS(W,'tr');
+        for(var i=0;i<rows.length;i++){
+          var tcs=[];for(var k=rows[i].firstChild;k;k=k.nextSibling)if(k.localName==='tc')tcs.push(k);
+          if(tcs.length===1){var tx=txt(tcs[0]);if(/^\d+\s*·\s*\S/.test(tx)){sec=up(tx);}continue}
+          var isAu=!!au&&au.test(sec)&&!noAu.test(sec)&&(auSec===null||auSec===sec);
+          for(var j=0;j<tcs.length-1;j++){
+            var lab=txt(tcs[j]).replace(/\s*\*$/,'');if(!lab||txt(tcs[j+1]))continue;
+            var v='';
+            if(isAu){if(lab==='Nom')v=nm;else if(lab==='Prénom')v=pre;else if(/^(Qualité|Grade)$/.test(lab))v=ME.grade||'';else if(/^Service/.test(lab))v=ME.service||'';else if(/^Nom de l.agent/.test(lab))v=ME.nom||''}
+            else if(inRx.test(sec)){if(lab==='Nom')v=(d.ind_nom||'').trim();else if(lab==='Prénom')v=(d.ind_prenom||'').trim()}
+            if(!v){if(lab==='Juridiction')v=d.juridiction||'';else if(/^(N° de dossier|Dossier)$/.test(lab))v=d.numero||'';else if(lab==='Date')v=dd;else if(lab==='Faits')v=String(d.resume||'').replace(/\s+/g,' ').slice(0,400)}
+            if(v){setCell(tcs[j+1],v);if(isAu)auSec=sec}
+          }
+        }
+      }else if(c.localName==='sdt'||c.localName==='body')walk(c);
+    }
+  };
+  walk(body);
+  return new XMLSerializer().serializeToString(doc);
 }
 async function makeDoc(id,attach){
   var sel=$('#g_doc');if(!sel||sel.value==='')throw new Error('Choisissez d’abord un modèle de document.');
@@ -2214,14 +2292,101 @@ async function viewFile(f){
   }catch(err){flash('Impossible d’ouvrir le document : '+err.message,true)}
 }
 
+/* ===================== REGISTRE DES JUGEMENTS (JURISPRUDENCE) ===================== */
+var JDEC=['Condamnation','Relaxe','Acquittement','Non-lieu','Renvoi devant une autre juridiction','Classement','Autre'];
+var JAPP=['Appel possible','Pas d’appel possible','Appel interjeté'];
+var JJUR=['Tribunal de Police','Tribunal Correctionnel','Cour d’Assises','Cour d’Appel','Cour de Cassation','Autre'];
+function jday(s){try{var d=new Date(s+'T12:00:00');return d.toLocaleDateString('fr-BE',{day:'numeric',month:'long',year:'numeric'})}catch(e){return s}}
+function jtoday(){var t=new Date();return t.getFullYear()+'-'+p2(t.getMonth()+1)+'-'+p2(t.getDate())}
+/* fenêtre proposée quand le juge ferme un dossier : renvoie true s'il choisit d'enregistrer (on quitte alors la page) */
+async function jugementPrompt(did){
+  try{var ex=await API.list('jugements',{dossier_id:did});if(ex.length)return false}catch(e){return false}
+  var ok=await dlgOpen({title:'Enregistrer le jugement dans le registre ?',body:'Ce dossier est terminé. Voulez-vous consigner la décision rendue dans le registre des jugements (jurisprudence) ? Les autres juges pourront la consulter.',ok:'Oui, enregistrer le jugement',cancel:'Plus tard'});
+  if(ok){location.hash='nouveau-jugement-'+did;return true}
+  return false;
+}
+async function viewJugements(){
+  var js=await API.list('jugements');
+  js.sort(function(a,b){return (b.date_jugement||'')<(a.date_jugement||'')?-1:(b.date_jugement||'')>(a.date_jugement||'')?1:((b.created_at||'')<(a.created_at||'')?-1:1)});
+  window.JLIST=js;
+  var years={};js.forEach(function(j){years[(j.date_jugement||'').slice(0,4)]=1});
+  var yl=Object.keys(years).sort().reverse();
+  return '<div class="wrap page">'+pageHead('Jurisprudence','Registre des jugements rendus : un jugement consigné ici sert de référence aux autres juges et aux avocats.')+
+  '<div class="jtools"><input id="jq" type="search" placeholder="Rechercher : infraction, article, juge, mot-clé…" aria-label="Rechercher dans la jurisprudence" value="'+qa(window.JQ||'')+'"><select id="jju" aria-label="Juridiction"><option value="">Toutes les juridictions</option>'+JJUR.map(function(x){return '<option>'+esc(x)+'</option>'}).join('')+'</select><select id="jde" aria-label="Décision"><option value="">Toutes les décisions</option>'+JDEC.map(function(x){return '<option>'+esc(x)+'</option>'}).join('')+'</select><select id="jan" aria-label="Année"><option value="">Toutes les années</option>'+yl.map(function(x){return '<option>'+esc(x)+'</option>'}).join('')+'</select>'+(isJuge()?'<a class="btn" href="#nouveau-jugement">+ Nouveau jugement</a>':'')+'</div>'+
+  '<p class="sub" id="jcount"></p><div id="jlist" class="jlist"></div></div>';
+}
+function jcard(j){
+  var mine=isAdm()||j.created_by===(ME&&ME.id);
+  var dc=/^Condamn/.test(j.decision)?'jc-c':/^(Relaxe|Acquitt|Non-lieu)/.test(j.decision)?'jc-r':'jc-o';
+  return '<details class="jcard"><summary><span class="jdate">'+esc(jday(j.date_jugement))+'</span><b>'+esc(j.infraction||'Jugement')+'</b><span class="jsub">'+esc(j.juridiction||'')+(j.numero?' · dossier '+esc(j.numero):'')+'</span><span class="jdec '+dc+'">'+esc(j.decision||'—')+'</span></summary>'+
+  '<div class="jbody"><dl>'+
+  (j.articles?'<dt>Articles appliqués</dt><dd>'+esc(j.articles)+'</dd>':'')+
+  (j.peine?'<dt>Peine prononcée</dt><dd>'+esc(j.peine)+'</dd>':'')+
+  (j.individu?'<dt>Prévenu</dt><dd>'+esc(j.individu)+'</dd>':'')+
+  '<dt>Juge</dt><dd>'+esc(j.juge_nom||who(j.created_by))+'</dd>'+
+  (j.appel?'<dt>Voies de recours</dt><dd>'+esc(j.appel)+'</dd>':'')+
+  (j.motifs?'<dt>Motifs</dt><dd class="jmot">'+esc(j.motifs)+'</dd>':'')+
+  '</dl><div class="jact">'+(j.dossier_id?'<a class="btn ghost small" href="#dossier-'+qa(j.dossier_id)+'">Ouvrir le dossier</a>':'')+(mine?'<a class="btn ghost small" href="#modifier-jugement-'+qa(j.id)+'">Modifier</a><button class="btn danger small" type="button" data-jdel="'+qa(j.id)+'">Supprimer</button>':'')+'</div></div></details>';
+}
+function bindJugements(){
+  var q=$('#jq'),ju=$('#jju'),de=$('#jde'),an=$('#jan');
+  var paint=function(){
+    window.JQ=q.value;var v=norm(q.value.trim());
+    var l=(window.JLIST||[]).filter(function(j){return (!ju.value||j.juridiction===ju.value)&&(!de.value||j.decision===de.value)&&(!an.value||(j.date_jugement||'').slice(0,4)===an.value)&&(!v||norm([j.infraction,j.articles,j.peine,j.motifs,j.juge_nom,j.numero,j.individu,j.decision,j.juridiction].join(' ')).indexOf(v)>=0)});
+    $('#jcount').textContent=l.length+' jugement'+(l.length>1?'s':'')+(l.length!==(window.JLIST||[]).length?' sur '+window.JLIST.length:'');
+    $('#jlist').innerHTML=l.length?l.map(jcard).join(''):'<p class="sub">Aucun jugement enregistré'+(isJuge()?' : utilisez « Nouveau jugement » ou fermez un dossier pour en ajouter un.':'.')+'</p>';
+  };
+  [q,ju,de,an].forEach(function(x){x.addEventListener('input',paint)});paint();
+  $('#jlist').addEventListener('click',async function(e){
+    var b=e.target.closest&&e.target.closest('[data-jdel]');if(!b)return;
+    try{if(!await ask('Supprimer ce jugement du registre ?\n\nCette action est définitive.'))return;await API.del('jugements',b.getAttribute('data-jdel'));flash('Jugement supprimé.');route(true)}catch(err){flash(err.message,true)}
+  });
+}
+async function viewJugementForm(editId,did){
+  if(!isJuge())return {html:'<div class="wrap page">'+pageHead('Jurisprudence','Seuls les juges peuvent consigner un jugement.')+'<p><a class="btn" href="#jugements">Retour au registre</a></p></div>',after:null};
+  var j={},ds=[];try{ds=await API.dossiers()}catch(e){}
+  if(editId){var r=await API.list('jugements',{id:editId});j=r[0]||{};if(!j.id||(!isAdm()&&j.created_by!==ME.id))return {html:'<div class="wrap page">'+pageHead('Jurisprudence','Jugement introuvable ou non modifiable.')+'<p><a class="btn" href="#jugements">Retour au registre</a></p></div>',after:null}}
+  else{
+    j={date_jugement:jtoday(),juge_nom:ME.nom,juridiction:'Tribunal de Police',dossier_id:did||''};
+    var d0=did&&ds.filter(function(x){return x.id===did})[0];if(d0)jfromDossier(j,d0);
+  }
+  var sel='<label>Dossier lié (facultatif)<select id="j_dos"><option value="">— Aucun —</option>'+ds.map(function(x){return '<option value="'+qa(x.id)+'"'+(x.id===j.dossier_id?' selected':'')+'>'+esc(x.numero+' · '+x.titre)+'</option>'}).join('')+'</select></label>';
+  var html='<div class="wrap page">'+pageHead(editId?'Modifier le jugement':'Nouveau jugement','Consignez la décision rendue. Elle apparaîtra dans le registre, classée par date.','<a href="#jugements">Jurisprudence</a> › '+(editId?'Modifier':'Nouveau jugement'))+
+  '<form id="jf" class="form wide">'+sel+
+  '<div class="two"><label>Date du jugement<input id="j_date" type="date" value="'+qa(j.date_jugement||'')+'" required></label><label>Juridiction<select id="j_ju">'+opts(JJUR,j.juridiction||'Tribunal de Police')+'</select></label></div>'+
+  '<div class="two"><label>Numéro du dossier<input id="j_num" value="'+qa(j.numero||'')+'"></label><label>Juge<input id="j_juge" value="'+qa(j.juge_nom||'')+'" required></label></div>'+
+  '<label>Prévenu ou accusé (facultatif)<input id="j_ind" value="'+qa(j.individu||'')+'"></label>'+
+  '<label>Infraction jugée<input id="j_inf" value="'+qa(j.infraction||'')+'" placeholder="Ex. : vol avec violence" required></label>'+
+  '<label>Articles appliqués<input id="j_art" value="'+qa(j.articles||'')+'" placeholder="Ex. : Code II, Art. B.12 ; Code V, Art. 30"></label>'+
+  '<div class="two"><label>Décision<select id="j_dec">'+opts(JDEC,j.decision||'Condamnation')+'</select></label><label>Voies de recours<select id="j_app">'+opts(JAPP,j.appel||'Appel possible')+'</select></label></div>'+
+  '<label>Peine prononcée<input id="j_pei" value="'+qa(j.peine||'')+'" placeholder="Ex. : amende de 5 000 € et retrait du permis"></label>'+
+  '<label>Motifs de la décision<textarea id="j_mot" rows="6" placeholder="Pourquoi le juge a décidé ainsi : faits retenus, preuves, circonstances…">'+esc(j.motifs||'')+'</textarea></label>'+
+  '<div class="jact"><button class="btn" type="submit">'+(editId?'Enregistrer les modifications':'Enregistrer le jugement')+'</button><a class="btn ghost" href="#jugements">Annuler</a></div></form></div>';
+  var after=function(){
+    var dos=$('#j_dos');
+    dos.addEventListener('change',function(){var d=ds.filter(function(x){return x.id===dos.value})[0];if(!d)return;var t={};jfromDossier(t,d);
+      if(!$('#j_num').value)$('#j_num').value=t.numero||'';if(!$('#j_inf').value)$('#j_inf').value=t.infraction||'';if(!$('#j_ind').value)$('#j_ind').value=t.individu||'';if(t.juridiction&&JJUR.indexOf(t.juridiction)>=0)$('#j_ju').value=t.juridiction});
+    $('#jf').addEventListener('submit',async function(e){e.preventDefault();
+      var row={dossier_id:dos.value||null,numero:$('#j_num').value.trim(),date_jugement:$('#j_date').value,juridiction:$('#j_ju').value,juge_nom:$('#j_juge').value.trim(),individu:$('#j_ind').value.trim(),infraction:$('#j_inf').value.trim(),articles:$('#j_art').value.trim(),decision:$('#j_dec').value,peine:$('#j_pei').value.trim(),motifs:$('#j_mot').value.trim(),appel:$('#j_app').value};
+      try{
+        if(editId)await API.upd('jugements',editId,row);else await API.ins('jugements',row);
+        if(row.dossier_id)await API.log(row.dossier_id,editId?'Jugement modifié dans le registre':'Jugement enregistré dans le registre ('+row.decision+')');
+        flash(editId?'Jugement modifié.':'Jugement enregistré dans le registre.');location.hash='jugements'
+      }catch(err){flash(err.message,true)}
+    });
+  };
+  return {html:html,after:after};
+}
+function jfromDossier(j,d){j.numero=d.numero||'';j.infraction=d.titre||'';j.individu=indiv(d)||'';if(JJUR.indexOf(d.juridiction)>=0)j.juridiction=d.juridiction;j.dossier_id=d.id}
+
 /* ===================== NAVIGATION ET DÉMARRAGE ===================== */
 function navHtml(cur){
   var sec=cur.split('-')[0];
-  var items=[['accueil','Accueil'],['messages','Messagerie'],['dossiers','Dossiers'],['agenda','Agenda'],['annuaire','Annuaire'],['codes','Codes'],['guides','Guides'],['documents','Documents']];
+  var items=[['accueil','Accueil'],['messages','Messagerie'],['dossiers','Dossiers'],['jugements','Jurisprudence'],['agenda','Agenda'],['annuaire','Annuaire'],['codes','Codes'],['guides','Guides'],['documents','Documents']];
   if(isPoliceAgent())items=[['accueil','Accueil'],['messages','Messagerie'],['annuaire','Annuaire'],['codes','Codes'],['guides','Guides'],['documents','Documents']];
   else if(isOPJ())items=items.filter(function(n){return n[0]!=='agenda'});
   if(isAdm())items.push(['admin','Administration']);
-  var group=/^c[1-8]$/.test(sec)?'codes':sec==='g'?'guides':sec==='dossier'||sec==='nouveau'||sec==='individu'?'dossiers':sec==='recherche'?'accueil':sec;
+  var group=/^c[1-8]$/.test(sec)?'codes':sec==='g'?'guides':sec==='dossier'||sec==='nouveau'||sec==='individu'?'dossiers':/^(jugements|nouveau-jugement|modifier-jugement)/.test(cur)?'jugements':sec==='recherche'?'accueil':sec;
   $('#nav').innerHTML=ME?items.map(function(n){return '<a href="#'+n[0]+'"'+(n[0]===group?' aria-current="page"':'')+'>'+n[1]+'</a>'}).join('')+'<button class="theme" id="lo" type="button">Déconnexion</button>':'';
   var lo=$('#lo');if(lo)lo.addEventListener('click',logout);
   renderBadges();
@@ -2244,7 +2409,7 @@ async function route(force){
   var h=(location.hash||'').replace(/^#/,'')||'accueil';
   /* accès Police : un agent n’a ni dossiers ni agenda ; un OPJ n’a ni agenda ni création de dossier */
   if(isAvocat()&&/^nouveau-dossier/.test(h)){h='dossiers';if(location.hash!=='#dossiers')location.hash='dossiers'}
-  if(isPolice()){var blk=isPoliceAgent()?/^(dossiers|dossier-|individu-|nouveau-dossier|agenda|admin)/:/^(nouveau-dossier|agenda|admin)/;if(blk.test(h)){h='accueil';if(location.hash!=='#accueil')location.hash='accueil'}}
+  if(isPolice()){var blk=isPoliceAgent()?/^(jugements|nouveau-jugement|modifier-jugement|dossiers|dossier-|individu-|nouveau-dossier|agenda|admin)/:/^(nouveau-dossier|agenda|admin)/;if(blk.test(h)){h='accueil';if(location.hash!=='#accueil')location.hash='accueil'}}
   if(force!==true)EDITING=false;
   navHtml(h);
   var m,target=null,html,after=null;
@@ -2261,6 +2426,8 @@ async function route(force){
     else if(h==='nouveau-dossier'){html=await viewNewDossier();after=function(){bindDossierForm(null)}}
     else if((m=h.match(/^dossier-(.+)$/))){var did=m[1];html=await viewDossier(did);after=function(){bindDossier(did)}}
     else if((m=h.match(/^individu-(.+)$/))){var ik;try{ik=decodeURIComponent(m[1])}catch(e0){ik=m[1]}html=await viewIndividu(ik);after=function(){bindIndividu(ik)}}
+    else if(h==='jugements'){html=await viewJugements();after=bindJugements}
+    else if((m=h.match(/^(nouveau|modifier)-jugement(?:-(.+))?$/))){var jf=await viewJugementForm(m[1]==='modifier'?m[2]:null,m[1]==='nouveau'?m[2]:null);html=jf.html;after=jf.after}
     else if(h==='agenda'){html=await viewAgenda();after=bindAgenda}
     else if(h==='admin'){html=await viewAdmin();after=bindAdmin}
     else if((m=h.match(/^c([1-8])(?:-(.+))?$/))){html=viewCode(+m[1]);target=m[2]?h:null}
