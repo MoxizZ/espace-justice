@@ -810,7 +810,7 @@ if(!LIVE){
     async messages(ch){if(!canChannel(ch))return [];return ST.messages.filter(function(m){return m.channel===ch}).sort(function(a,b){return a.created_at<b.created_at?-1:1}).slice(-200)},
     async recent(){return ST.messages.filter(function(m){return canChannel(m.channel)}).slice(-300)},
     async send(ch,body,files){if(!canChannel(ch))throw new Error('Vous n’avez pas accès à ce salon.');var mm={id:uid(),channel:ch,sender:ME.id,body:body,files:files||[],created_at:nowIso()};var st=demandeStatut(ch,files);if(st)mm.statut=st;ST.messages.push(mm);save()},
-    async updateMessage(id,p){var m=ST.messages.filter(function(x){return x.id===id})[0];if(!m||!canChannel(m.channel))throw new Error('Accès refusé.');var pol=isPolice();if(p.files)m.files=p.files;if(p.statut&&(!pol||p.statut==='signee'))m.statut=p.statut;if(!pol&&p.rangee!=null)m.rangee=p.rangee;save()},
+    async updateMessage(id,p){var m=ST.messages.filter(function(x){return x.id===id})[0];if(!m||!canChannel(m.channel))throw new Error('Accès refusé.');var pol=isPolice();if(p.files)m.files=p.files;if(p.statut&&(!pol||p.statut==='signee'||p.statut==='transferee'))m.statut=p.statut;if((!pol||p.statut==='transferee')&&p.rangee!=null)m.rangee=p.rangee;save()},
     async copyFile(f){return Object.assign({},f)},
     async getMessage(id){return ST.messages.filter(function(x){return x.id===id})[0]||null},
     async ranges(){return (ST.ranges||[]).slice().sort(function(a,b){return a.created_at<b.created_at?1:-1})},
@@ -936,8 +936,8 @@ function fileLinks(fs,m){
     var isD=/\.docx\)?$/i.test(f.name);
     var rgo=rgParse(m&&m.rangee),rg=(RANGER_OK(f)&&m&&(m.statut==='signee'||m.statut==='rangee'))?'<button class="fchip edt" type="button" data-fr="__I__">'+(m.statut==='signee'?(rgo.ret?'📁 Ranger à nouveau':'📁 Ranger'):(!rgo.docs?'📁 Remettre dans les Documents rangés':'📁 Ajouter à un dossier'))+'</button>':'';
     var sg=(f.signs&&f.signs.length)?'<span class="signok">'+f.signs.map(function(s){return '<span>✓ '+esc(s)+'</span>'}).join('')+'</span>':'';
-    if(f.url&&!f.data){FREG.push(f);FMSG[FREG.length-1]=m||null;return '<a class="fchip" href="'+qa(f.url)+'" target="_blank" rel="noopener">📄 '+esc(f.name)+'</a>'+(isD?(m&&(m.statut==='rangee'||m.statut==='signee')?'<button class="fchip vw" type="button" data-fv="'+(FREG.length-1)+'">👁 Ouvrir (lecture seule)</button>':'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>'):'')+rg.replace('__I__',FREG.length-1)+sg}
-    FREG.push(f);FMSG[FREG.length-1]=m||null;return '<a class="fchip" href="#" data-fi="'+(FREG.length-1)+'">📎 '+esc(f.name)+(f.size?' <small>'+fsize(f.size)+'</small>':'')+'</a>'+(isD?(m&&(m.statut==='rangee'||m.statut==='signee')?'<button class="fchip vw" type="button" data-fv="'+(FREG.length-1)+'">👁 Ouvrir (lecture seule)</button>':'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>'):'')+rg.replace('__I__',FREG.length-1)+sg;
+    if(f.url&&!f.data){FREG.push(f);FMSG[FREG.length-1]=m||null;return '<a class="fchip" href="'+qa(f.url)+'" target="_blank" rel="noopener">📄 '+esc(f.name)+'</a>'+(isD?(m&&(m.statut==='rangee'||m.statut==='signee'||m.statut==='transferee')?'<button class="fchip vw" type="button" data-fv="'+(FREG.length-1)+'">👁 Ouvrir (lecture seule)</button>':'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>'+((m&&m.statut==='a_traiter')?'<button class="fchip vw" type="button" data-ft="'+(FREG.length-1)+'">↪ Transférer à un collègue</button>':'')):'')+rg.replace('__I__',FREG.length-1)+sg}
+    FREG.push(f);FMSG[FREG.length-1]=m||null;return '<a class="fchip" href="#" data-fi="'+(FREG.length-1)+'">📎 '+esc(f.name)+(f.size?' <small>'+fsize(f.size)+'</small>':'')+'</a>'+(isD?(m&&(m.statut==='rangee'||m.statut==='signee'||m.statut==='transferee')?'<button class="fchip vw" type="button" data-fv="'+(FREG.length-1)+'">👁 Ouvrir (lecture seule)</button>':'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>'+((m&&m.statut==='a_traiter')?'<button class="fchip vw" type="button" data-ft="'+(FREG.length-1)+'">↪ Transférer à un collègue</button>':'')):'')+rg.replace('__I__',FREG.length-1)+sg;
   }).join('')+'</div>';
 }
 var DOCDATA=null;
@@ -990,6 +990,19 @@ function bindFiles(root){
   (root||document).querySelectorAll('[data-rdel]').forEach(function(b){b.addEventListener('click',async function(){
     if(!await ask('Retirer ce document des Documents rangés ?\n\nLe message d’origine reste dans la messagerie.'))return;
     try{var rmid=b.getAttribute('data-rmsg');await API.delRange(b.getAttribute('data-rdel'));if(rmid){try{await rgUpdate(rmid,function(o){o.docs=false})}catch(e3){}}flash('Document retiré des Documents rangés. Il peut être remis depuis la messagerie.');route(true)}catch(e){flash(e.message,true)}})});
+  (root||document).querySelectorAll('[data-ft]').forEach(function(b){b.addEventListener('click',async function(){
+    var k=+b.getAttribute('data-ft'),f=FREG[k],msg=FMSG[k];if(!f||!msg)return;
+    try{
+      await loadMembers();
+      var ms=approved().filter(function(x){return x.id!==ME.id});
+      var u=await dlgOpen({title:'Transférer pour signature',body:'« '+f.name+' » sera envoyé en message privé à la personne choisie, avec les signatures déjà posées. Elle pourra le signer à son tour.',ok:'Transférer',options:ms.map(function(x){return [x.id,x.nom+' · '+x.grade]})});
+      if(!u)return;
+      var t=ms.filter(function(x){return x.id===u})[0],cp=await API.copyFile(f);
+      await API.send(dmChannel(ME.id,u),'↪ Transféré par '+ME.nom+' pour signature.',[cp]);
+      try{await API.updateMessage(msg.id,{statut:'transferee',rangee:'@t:'+(t?t.nom:'')})}catch(e2){}
+      flash('Document transféré à '+(t?t.nom:'')+' : la suite des signatures se fait dans votre message privé avec cette personne.');await refreshThread(true);
+    }catch(err){flash(err.message,true)}
+  })});
   (root||document).querySelectorAll('[data-fv]').forEach(function(b){b.addEventListener('click',function(){viewFile(FREG[+b.getAttribute('data-fv')])})});
   (root||document).querySelectorAll('[data-fe]').forEach(function(b){b.addEventListener('click',function(){editFile(FREG[+b.getAttribute('data-fe')],FMSG[+b.getAttribute('data-fe')])})});
   (root||document).querySelectorAll('[data-fi]').forEach(function(a){a.addEventListener('click',async function(e){
@@ -1165,6 +1178,7 @@ function stBadge(m){
   var b;
   if(m.statut==='a_traiter')b='<div class="stb st-a">⏳ À traiter'+(mt.slots>1?' · '+Math.min(mt.signed||0,mt.slots)+'/'+mt.slots+' signatures':'')+'</div>';
   else if(m.statut==='rangee'){var ro=rgParse(m.rangee);b='<div class="stb st-r">✓ Signé · 📁 Rangé'+(j?' : '+[ro.docs?'Documents rangés':''].concat(ro.dos.map(function(x){return 'dossier '+esc(x)})).filter(Boolean).join(' + ')+(!ro.docs?' <i>(retiré des Documents rangés : on peut le remettre)</i>':''):'')+'</div>'}
+  else if(m.statut==='transferee')b='<div class="stb st-s">↪ Transféré à '+esc(String(m.rangee||'').replace(/^@t:/,''))+' pour la suite des signatures</div>';
   else if(j&&rgParse(m.rangee).ret)b='<div class="stb st-s">✓ Signé · ↩ Retiré du rangement : on peut le ranger à nouveau</div>';
   else b='<div class="stb st-s">✓ Signé</div>';
   return lab+b;
