@@ -1121,14 +1121,14 @@ async function viewMessages(sub){
   var dms=approved().filter(function(m){return m.id!==ME.id&&dset[m.id]});
   var chLink=function(c){return '<a href="#messages-'+c[0]+'" data-ch="'+c[0]+'"'+(c[0]===ch?' aria-current="true"':'')+'># '+esc(c[1])+'</a>'};
   var jch=CHANNELS.filter(function(c){return !isPolChan(c[0])&&canChannel(c[0])}),pch=CHANNELS.filter(function(c){return isPolChan(c[0])&&canChannel(c[0])});
-  var side='<div class="side-h">Salons</div>'+jch.concat(pch).sort(function(x,y){return CHANNELS.indexOf(x)-CHANNELS.indexOf(y)}).map(chLink).join('')+
+  var side=(jch.length?'<div class="side-h">Salons</div>'+jch.map(chLink).join(''):'')+(pch.length?'<div class="side-h">Police · demandes</div>'+pch.map(chLink).join(''):'')+
    '<div class="side-h">Messages privés</div>'+(dms.length?dms:[]).map(function(m){var c=dmChannel(ME.id,m.id);return '<a href="#messages-dm-'+qa(m.id)+'" data-ch="'+qa(c)+'"'+(c===ch?' aria-current="true"':'')+'><span>'+esc(m.nom)+'</span><small>'+esc(m.grade||'')+'</small></a>'}).join('')+(dms.length?'':'<p class="side-empty">Aucune conversation. Cliquez sur « Écrire » dans l’<a href="#annuaire">Annuaire</a> pour en démarrer une.</p>');
   var dcats={},dorder=[];DOCS.forEach(function(d,i){if(!dcats[d.cat]){dcats[d.cat]=[];dorder.push(d.cat)}dcats[d.cat].push([i,d])});
   var pol=isPolChan(ch);if(isPolice())dorder=dorder.filter(function(c){return c==='Police'});
   var docsSel='<select id="dsel" aria-label="Joindre un document type"><option value="">'+(pol?'Faire une demande / joindre un modèle…':'Joindre un document type…')+'</option>'+dorder.map(function(c){return '<optgroup label="'+qa(c)+'">'+dcats[c].map(function(p){return '<option value="'+p[0]+'">'+esc(p[1].ref+' — '+p[1].title)+'</option>'}).join('')+'</optgroup>'}).join('')+'</select>';
   var h='<div class="wrap page wide"><div class="msgwrap"><aside class="msgside">'+side+'</aside><section class="msgmain"><header class="msghead"><b>'+esc(chanTitle(ch))+'</b></header>'+(pol?'<p class="polhint">'+(isPolice()?'Pour une demande : choisissez un modèle dans la liste « Faire une demande », complétez-le, puis envoyez-le. Le magistrat l’ouvrira, le signera et vous le renverra ici.':'Les demandes de la Police arrivent ici. Ouvrez le document, cliquez sur « ✍ Compléter / signer », puis renvoyez-le dans ce salon.')+'</p>':'')+'<div id="thread" class="thread" aria-live="polite"><p class="empty">Chargement…</p></div>'+
   '<form id="comp" class="comp"><div id="pend" class="pend">'+pendHtml()+'</div><textarea id="mt" rows="2" placeholder="Votre message (Entrée pour envoyer, Maj+Entrée pour aller à la ligne)" aria-label="Votre message"></textarea>'+
-  '<div class="comprow"><label class="btn ghost small"'+(isPolice()?' style="display:none"':'')+'>📎 Joindre un fichier<input id="mfile" type="file" multiple hidden></label>'+docsSel+'<button class="btn" type="submit">Envoyer</button></div></form></section></div></div>';
+  '<div class="comprow"><label class="btn ghost small">📎 Joindre un fichier<input id="mfile" type="file" multiple hidden></label>'+docsSel+'<button class="btn" type="submit">Envoyer</button></div></form></section></div></div>';
   return h;
 }
 function bindMessages(){
