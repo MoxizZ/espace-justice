@@ -896,9 +896,10 @@ function fileLinks(fs){
   if(!fs||!fs.length)return '';
   return '<div class="mf">'+fs.map(function(f){
     var isD=/\.docx\)?$/i.test(f.name);
+    var rg=(/^#messages/.test(location.hash)&&!isPolice())?'<button class="fchip edt" type="button" data-fr="__I__">📁 Ranger dans un dossier</button>':'';
     var sg=(f.signs&&f.signs.length)?'<span class="signok">'+f.signs.map(function(s){return '<span>✓ '+esc(s)+'</span>'}).join('')+'</span>':'';
-    if(f.url&&!f.data){FREG.push(f);return '<a class="fchip" href="'+qa(f.url)+'" target="_blank" rel="noopener">📄 '+esc(f.name)+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+sg}
-    FREG.push(f);return '<a class="fchip" href="#" data-fi="'+(FREG.length-1)+'">📎 '+esc(f.name)+(f.size?' <small>'+fsize(f.size)+'</small>':'')+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+sg;
+    if(f.url&&!f.data){FREG.push(f);return '<a class="fchip" href="'+qa(f.url)+'" target="_blank" rel="noopener">📄 '+esc(f.name)+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+rg.replace('__I__',FREG.length-1)+sg}
+    FREG.push(f);return '<a class="fchip" href="#" data-fi="'+(FREG.length-1)+'">📎 '+esc(f.name)+(f.size?' <small>'+fsize(f.size)+'</small>':'')+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+rg.replace('__I__',FREG.length-1)+sg;
   }).join('')+'</div>';
 }
 var DOCDATA=null;
@@ -925,6 +926,17 @@ document.addEventListener('click',function(e){
   e.preventDefault();var u=a.getAttribute('href');openFile(u,decodeURIComponent(u.split('/').pop()));
 });
 function bindFiles(root){
+  (root||document).querySelectorAll('[data-fr]').forEach(function(b){b.addEventListener('click',async function(){
+    var f=FREG[+b.getAttribute('data-fr')];if(!f)return;
+    try{
+      var l=(await API.dossiers()).slice().sort(function(x,y){return (x.statut==='Classé')-(y.statut==='Classé')||(x.numero<y.numero?1:-1)});
+      if(!l.length){flash('Aucun dossier où ranger ce document.',true);return}
+      var id=await dlgOpen({title:'Ranger dans quel dossier ?',body:f.name,ok:'Ranger',options:l.map(function(d){return [d.id,d.numero+' · '+(indiv(d)||d.titre)+(d.statut==='Classé'?' (classé)':'')]})});
+      if(!id)return;
+      await API.addNote(id,'Document reçu par la messagerie : '+f.name,[f]);await API.log(id,'Document reçu par la messagerie et rangé : '+f.name);
+      var d=l.filter(function(x){return x.id===id})[0];flash('Document rangé dans le dossier '+(d?d.numero:'')+'.');
+    }catch(err){flash(err.message,true)}
+  })});
   (root||document).querySelectorAll('[data-fe]').forEach(function(b){b.addEventListener('click',function(){editFile(FREG[+b.getAttribute('data-fe')])})});
   (root||document).querySelectorAll('[data-fi]').forEach(function(a){a.addEventListener('click',async function(e){
     e.preventDefault();var f=FREG[+a.getAttribute('data-fi')];
@@ -994,7 +1006,7 @@ function dlgOpen(o){
     box.querySelector('h3').textContent=o.title;
     var b=box.querySelector('.dlg-b');if(o.body){b.innerHTML=String(o.body).split(/\n/).map(function(s){return esc(s)}).join('<br>')}else b.remove();
     var inp=null,sl=box.querySelector('.dlg-in');
-    if(o.input){inp=document.createElement('textarea');inp.rows=o.val!==undefined?1:3;inp.placeholder=o.ph||'';if(o.val!==undefined)inp.value=o.val;inp.setAttribute('aria-label',o.title);sl.appendChild(inp)}else sl.remove();
+    if(o.options){inp=document.createElement('select');inp.setAttribute('aria-label',o.title);inp.style.cssText='width:100%;font:inherit;padding:10px;border:1px solid #cbd3df;border-radius:8px';o.options.forEach(function(x){var op=document.createElement('option');op.value=x[0];op.textContent=x[1];inp.appendChild(op)});sl.appendChild(inp)}else if(o.input){inp=document.createElement('textarea');inp.rows=o.val!==undefined?1:3;inp.placeholder=o.ph||'';if(o.val!==undefined)inp.value=o.val;inp.setAttribute('aria-label',o.title);sl.appendChild(inp)}else sl.remove();
     var bc=box.querySelector('[data-x="0"]'),bo=box.querySelector('[data-x="1"]');
     bc.textContent=o.cancel||'Annuler';bo.textContent=o.ok||'Confirmer';if(o.danger)bo.className='btn danger';
     var done=function(v){document.removeEventListener('keydown',kd,true);ov.remove();try{if(prev&&prev.focus)prev.focus()}catch(e){}res(v)};
@@ -1214,7 +1226,7 @@ function dossierForm(d){
   '<div class="lbl"><span>Chargés du dossier (5 au maximum)</span><div id="f_asl" class="pend"></div><select id="f_asadd" aria-label="Ajouter une personne au dossier"></select></div></div>'+
   '<p class="sub small">🔒 Seuls les administrateurs, la personne qui ouvre le dossier et les personnes chargées ci-dessus le voient.</p>'+
   '<label>Parties (qui contre qui)<input id="f_pa" value="'+qa(d.parties||'')+'"></label><label>Résumé des faits<textarea id="f_re" rows="5">'+esc(d.resume||'')+'</textarea></label>'+
-  '<div class="comprow"><button class="btn" type="submit">Enregistrer</button><a class="btn ghost" href="#'+(d.id?'dossier-'+qa(d.id):'dossiers')+'">Annuler</a></div></form>';
+  '<div class="comprow"><button class="btn" type="submit">Enregistrer</button><button class="btn" type="button" id="f_savego">Enregistrer et revenir aux dossiers</button><a class="btn ghost" href="#'+(d.id?'dossier-'+qa(d.id):'dossiers')+'">Annuler</a></div></form>';
 }
 async function viewNewDossier(){await loadMembers();return '<div class="wrap page">'+pageHead('Nouveau dossier','',' <a href="#dossiers">Dossiers</a> › Nouveau')+dossierForm()+'</div>'}
 function drawAsg(){
@@ -1225,8 +1237,10 @@ function drawAsg(){
   s.innerHTML=FASG.length>=5?'<option value="">5 personnes au maximum</option>':'<option value="">Ajouter une personne…</option>'+rest.map(function(m){return '<option value="'+qa(m.id)+'">'+esc(m.nom+' · '+m.grade)+'</option>'}).join('');
   s.disabled=FASG.length>=5;
 }
+var GOBACK=false;
 function bindDossierForm(id){
   var f=$('#df');if(!f)return;
+  var sg=$('#f_savego');if(sg)sg.addEventListener('click',function(){GOBACK=true;if(f.requestSubmit)f.requestSubmit();else f.dispatchEvent(new Event('submit',{cancelable:true}))});
   API.dossiers().then(function(l){var seen={},o=[];l.forEach(function(d){if(d.ind_nom&&!seen[d.ind_nom]){seen[d.ind_nom]=1;o.push(d.ind_nom)}});var dl=$('#f_indl');if(dl)dl.innerHTML=o.sort().map(function(x){return '<option value="'+qa(x)+'">'}).join('')}).catch(function(){});
   var DUP=[];API.dossiers().then(function(l){DUP=l;dupCheck()}).catch(function(){});
   var dupFind=function(){var n=norm($('#f_in').value.trim()),p=norm($('#f_ip').value.trim());if(!n)return [];return DUP.filter(function(x){return x.id!==id&&norm((x.ind_nom||'').trim())===n&&(!p||norm((x.ind_prenom||'').trim())===p)})};
@@ -1245,7 +1259,7 @@ function bindDossierForm(id){
       var r=await API.saveDossier(d);
       if(old){var ch=diffDossier(old,d);if(ch.length)await API.log(id,'Modification : '+ch.join(' ; '))}
       else await API.log(r.id,'Dossier ouvert (n° '+d.numero+')');
-      flash('Dossier enregistré.');EDITING=false;if(id)route(true);else location.hash='dossier-'+r.id
+      flash('Dossier enregistré.');EDITING=false;if(GOBACK){GOBACK=false;location.hash='dossiers'}else if(id)route(true);else location.hash='dossier-'+r.id
     }catch(err){flash('Enregistrement impossible : '+err.message,true)}
   });
 }
@@ -1294,7 +1308,7 @@ async function viewDossier(id){
   hist.forEach(function(l){if(/^Note ajoutée/.test(l.action))return;ev.push({at:l.created_at,by:l.author,ic:icLog(l.action),h:'<div class="mb">'+esc(l.action)+'</div>'})});
   ev.sort(function(x,y){return x.at<y.at?1:-1});
   var tl='<section class="block" style="padding-top:8px"><h2 style="font-size:34px;margin-bottom:14px">Informations du dossier</h2>'+
-    '<form id="nf" class="comp" style="margin-bottom:14px"><div id="npend" class="pend"></div><textarea id="nt" rows="3" placeholder="Ajouter une note, un acte, une décision…" aria-label="Nouvelle note"></textarea><div class="comprow"><label class="btn ghost small">📎 Joindre un fichier<input id="nfile" type="file" multiple hidden></label><button class="btn" type="submit">Ajouter à la chronologie</button></div></form>'+
+    '<form id="nf" class="comp" style="margin-bottom:14px"><div id="npend" class="pend"></div><textarea id="nt" rows="3" placeholder="Ajouter une note, un acte, une décision…" aria-label="Nouvelle note"></textarea><div class="comprow"><label class="btn ghost small">📎 Joindre un fichier<input id="nfile" type="file" multiple hidden></label><button class="btn" type="submit">Enregistrer</button><button class="btn ghost" type="button" id="nsgo">Enregistrer et revenir aux dossiers</button></div></form>'+
     '<h3 class="tlh">Chronologie</h3><div class="htl" id="htl"><ol class="htl-r">'+
     ev.slice().reverse().map(function(x){return '<li><span class="ti">'+x.ic+'</span><div class="hc"><time>'+fdate(x.at)+' · '+esc(who(x.by))+'</time>'+x.h+'</div></li>'}).join('')+
     '<li class="now" id="htlnow"><span class="ti">●</span><div class="hc"><b>Aujourd’hui</b></div></li>'+
@@ -1387,6 +1401,7 @@ function bindDossier(id){
   NPEND=[];var np=$('#npend');
   var draw=function(){np.innerHTML=NPEND.map(function(p,i){return '<span class="fchip">📎 '+esc(p.name)+' <button type="button" data-rm="'+i+'">×</button></span>'}).join('');np.querySelectorAll('[data-rm]').forEach(function(b){b.addEventListener('click',function(){NPEND.splice(+b.getAttribute('data-rm'),1);draw()})})};
   $('#nfile').addEventListener('change',async function(e){var fs=Array.prototype.slice.call(e.target.files);e.target.value='';for(var i=0;i<fs.length;i++){try{NPEND.push(await API.upload(fs[i]));draw()}catch(err){flash(err.message,true)}}});
+  var ng=$('#nsgo');if(ng)ng.addEventListener('click',async function(){var b=$('#nt').value.trim();try{if(b||NPEND.length){var nf=NPEND.slice();await API.addNote(id,b,nf);await API.log(id,'Note ajoutée'+(nf.length?' avec '+nf.length+' pièce'+(nf.length>1?'s':'')+' : '+nf.map(function(x){return x.name}).join(', '):''));NPEND=[];flash('Note enregistrée.')}location.hash='dossiers'}catch(err){flash(err.message,true)}});
   $('#nf').addEventListener('submit',async function(e){e.preventDefault();var b=$('#nt').value.trim();if(!b&&!NPEND.length)return;try{var nf=NPEND.slice();await API.addNote(id,b,nf);await API.log(id,'Note ajoutée'+(nf.length?' avec '+nf.length+' pièce'+(nf.length>1?'s':'')+' : '+nf.map(function(x){return x.name}).join(', '):''));NPEND=[];flash('Note ajoutée.');route(true)}catch(err){flash(err.message,true)}});
 }
 
