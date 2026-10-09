@@ -429,6 +429,7 @@ dl.pen.big{max-width:820px;margin-top:18px}
 
 .msgside .side-empty a{display:inline;padding:0;background:none;border:0;text-decoration:underline}
 .ro #dst,.ro #ded,.ro #ddel,.ro #dtr,.ro #dstar,.ro #nf,.ro #ef,.ro #lf,.ro .inl,.ro .pdel,.ro .visabtn,.ro [data-erm],.ro [data-edone],.ro [data-restore],.ro [data-purge]{display:none!important}
+.garde .act{display:flex;flex-direction:column;gap:4px}.garde .gtel{font-weight:600}.garde .btn{align-self:flex-start;margin-top:6px}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -990,7 +991,7 @@ function dlgOpen(o){
     box.querySelector('h3').textContent=o.title;
     var b=box.querySelector('.dlg-b');if(o.body){b.innerHTML=String(o.body).split(/\n/).map(function(s){return esc(s)}).join('<br>')}else b.remove();
     var inp=null,sl=box.querySelector('.dlg-in');
-    if(o.input){inp=document.createElement('textarea');inp.rows=3;inp.placeholder=o.ph||'';inp.setAttribute('aria-label',o.title);sl.appendChild(inp)}else sl.remove();
+    if(o.input){inp=document.createElement('textarea');inp.rows=o.val!==undefined?1:3;inp.placeholder=o.ph||'';if(o.val!==undefined)inp.value=o.val;inp.setAttribute('aria-label',o.title);sl.appendChild(inp)}else sl.remove();
     var bc=box.querySelector('[data-x="0"]'),bo=box.querySelector('[data-x="1"]');
     bc.textContent=o.cancel||'Annuler';bo.textContent=o.ok||'Confirmer';if(o.danger)bo.className='btn danger';
     var done=function(v){document.removeEventListener('keydown',kd,true);ov.remove();try{if(prev&&prev.focus)prev.focus()}catch(e){}res(v)};
@@ -1012,7 +1013,7 @@ function ask(msg){
   else if(/existe déjà/.test(t)){ok='Créer quand même'}
   return dlgOpen({title:t,body:p.slice(1).join('\n\n'),ok:ok,danger:danger});
 }
-function askText(title,body,ok,ph){return dlgOpen({title:title,body:body,ok:ok,input:true,ph:ph})}
+function askText(title,body,ok,ph,val){return dlgOpen({title:title,body:body,ok:ok,input:true,ph:ph,val:val})}
 
 /* ===================== ACCUEIL ===================== */
 async function viewHome(){
@@ -1024,7 +1025,7 @@ async function viewHome(){
   var mine=starFirst(ds.filter(function(d){return d.statut!=='Classé'&&isMine(d)}));var rec=mine.slice(0,6).map(function(d){return '<a class="act" href="#dossier-'+qa(d.id)+'"><b>'+(isStar(d)?'⭐ ':'')+esc(d.numero)+' · '+esc(d.titre)+'</b><span>'+esc(d.juridiction||'')+' · mis à jour '+fdate(d.updated_at)+'</span><em>'+esc(d.statut)+'</em></a>'}).join('')||'<p class="sub">Aucun dossier ne vous est confié pour l’instant.</p>';
   var codes=[1,2,3,4,5,6,7,8].map(function(c){var n=0;D.codes[c].titres.forEach(function(t){n+=t.articles.length});return '<a class="codecard" href="#c'+c+'"><span class="roman">'+ROM[c]+'</span><b>'+CINFO[c].n+'</b><span>'+CINFO[c].d+'</span><small>'+n+' articles</small></a>'}).join('');
   var guides=GKEYS.map(function(g){var n=0;D.guides[g].titres.forEach(function(t){n+=t.fiches.length});return '<a class="act" href="#g-'+g+'"><b>'+GINFO[g].n+'</b><span>'+GINFO[g].d+'</span><em>'+n+' fiches</em></a>'}).join('');
-  var HX=isPolice()?'':await homeExtras();
+  var HX=(await gardeHtml())+(isPolice()?'':await homeExtras());
   return q+'<div class="wrap">'+HX+'<section class="block"><h2>Votre espace</h2><div class="grid g-act">'+cards+'</div></section>'+
   (isPoliceAgent()?'':'<section class="block"><h2>Mes dossiers ('+mine.length+')</h2><div class="grid g-act">'+rec+'</div>'+(mine.length>6?'<p style="margin-top:10px"><a href="#dossiers">Voir tous mes dossiers →</a></p>':'')+'</section>')+
   '<section class="block"><h2>Les huit Codes</h2><div class="grid g-codes">'+codes+'</div><div class="hier" role="group" aria-label="Hiérarchie des normes"><span><b>Ordre de priorité</b></span><span>Code I</span>›<span>Code II</span>›<span>Code III</span>›<span>Codes IV à VIII</span></div></section>'+
@@ -1638,7 +1639,30 @@ async function homeExtras(){
     (wk.length?'<div class="grid g-act">'+wk.slice(0,8).map(function(e){var d=dm[e.dossier_id],late=new Date(e.date_heure).getTime()<now;return '<a class="act'+(late?' late':'')+'" href="#dossier-'+qa(d.id)+'"><b>'+esc(e.type)+' · '+esc(d.numero)+'</b><span>'+esc(d.titre)+(e.note?' — '+esc(e.note):'')+'</span><em>'+fday(e.date_heure)+' '+ftime(e.date_heure)+' · '+reste(e.date_heure)+'</em></a>'}).join('')+'</div>'+(wk.length>8?'<p style="margin-top:10px"><a href="#agenda">Voir tout l’agenda →</a></p>':''):'<p class="sub">Rien à l’agenda dans les 7 prochains jours. <a href="#agenda">Ouvrir l’agenda</a></p>')+'</section>';
   return h;
 }
+/* ---------- Qui est de garde (visible de tous, modifiable par le service concerné et les administrateurs) ---------- */
+var GARDE=[['Avocat','Barreau'],['Procureur du Roi','Parquet'],['Juge','Siège'],['Juge d’instruction','Instruction']];
+function canEditGarde(f){if(isAdm())return true;for(var i=0;i<GARDE.length;i++)if(GARDE[i][0]===f)return !!ME&&ME.service===GARDE[i][1]&&!isPolice();return false}
+async function gardeRows(){
+  var r=[];try{r=await API.list('garde')}catch(e){return null}
+  if(!r.length&&!API.live){for(var i=0;i<GARDE.length;i++)await API.ins('garde',{fonction:GARDE[i][0],nom:'',telephone:''});r=await API.list('garde')}
+  return r;
+}
+async function gardeHtml(){
+  var r=await gardeRows();if(!r)return '';
+  var by={};r.forEach(function(x){by[x.fonction]=x});
+  return '<section class="block"><h2>De garde</h2><div class="grid g-act garde">'+GARDE.map(function(g){
+    var x=by[g[0]];if(!x)return '';
+    var ed=canEditGarde(g[0])?'<button class="btn ghost small" type="button" data-garde="'+qa(x.id)+'" data-gf="'+qa(g[0])+'">✎ Modifier</button>':'';
+    return '<div class="act"><b>'+esc(g[0])+' de garde</b><span>'+(x.nom?esc(x.nom):'<i>À renseigner</i>')+'</span><span class="gtel">'+(x.telephone?'☎ '+esc(x.telephone):'☎ numéro à venir')+'</span>'+ed+'</div>'}).join('')+'</div></section>';
+}
 function bindHome(){
+  document.querySelectorAll('[data-garde]').forEach(function(b){b.addEventListener('click',async function(){
+    var id=b.getAttribute('data-garde'),f=b.getAttribute('data-gf');
+    var cur=(await API.list('garde')).filter(function(x){return x.id===id})[0]||{};
+    var n=await askText(f+' de garde','Nom de la personne de garde (laisser vide si personne).','Suivant','Nom',cur.nom||'');if(n===null||n===false)return;
+    var t=await askText(f+' de garde','Numéro de téléphone (ou de radio).','Enregistrer','Téléphone',cur.telephone||'');if(t===null||t===false)return;
+    try{await API.upd('garde',id,{nom:String(n).trim(),telephone:String(t).trim(),updated_at:nowIso(),updated_by:ME.id});flash('Garde mise à jour.');route(true)}catch(e){flash(e.message)}
+  })});
 }
 
 /* ---------- Agenda ---------- */
