@@ -807,6 +807,9 @@ if(!LIVE){
     async send(ch,body,files){if(!canChannel(ch))throw new Error('Vous n’avez pas accès à ce salon.');var mm={id:uid(),channel:ch,sender:ME.id,body:body,files:files||[],created_at:nowIso()};var st=demandeStatut(ch,files);if(st)mm.statut=st;ST.messages.push(mm);save()},
     async updateMessage(id,p){var m=ST.messages.filter(function(x){return x.id===id})[0];if(!m||!canChannel(m.channel))throw new Error('Accès refusé.');var pol=isPolice();if(p.files)m.files=p.files;if(p.statut&&(!pol||p.statut==='signee'))m.statut=p.statut;if(!pol&&p.rangee)m.rangee=p.rangee;save()},
     async copyFile(f){return Object.assign({},f)},
+    async ranges(){return (ST.ranges||[]).slice().sort(function(a,b){return a.created_at<b.created_at?1:-1})},
+    async addRange(r){ST.ranges=ST.ranges||[];ST.ranges.push(Object.assign({id:uid(),created_by:ME.id,created_at:nowIso()},r));save()},
+    async delRange(id){ST.ranges=(ST.ranges||[]).filter(function(x){return x.id!==id});save()},
     async upload(file){return new Promise(function(res,rej){if(file.size>1200000)return rej(new Error('Fichier trop gros pour la démonstration (1,2 Mo maximum).'));var r=new FileReader();r.onload=function(){res({name:file.name,size:file.size,data:r.result})};r.onerror=rej;r.readAsDataURL(file)})},
     async fileUrl(f){return f.data||f.url},
     async dossiers(){return ST.dossiers.filter(function(d){return canSeeD(d)&&!d.deleted_at}).sort(function(a,b){return a.updated_at<b.updated_at?1:-1})},
@@ -854,6 +857,9 @@ if(!LIVE){
     async recent(){return chk(await SB.from('messages').select('id,channel,sender,created_at').order('created_at',{ascending:false}).limit(300))},
     async send(ch,body,files){var row={channel:ch,sender:ME.id,body:body,files:files||[]};var st=demandeStatut(ch,files);if(st)row.statut=st;chk(await SB.from('messages').insert(row))},
     async updateMessage(id,p){var r=await SB.rpc('maj_message',{mid:id,f:p.files||null,st:p.statut||null,rg:p.rangee||null});if(r.error)throw new Error(r.error.message)},
+    async ranges(){return chk(await SB.from('rangements').select('*').order('created_at',{ascending:false}))},
+    async addRange(r){chk(await SB.from('rangements').insert({titre:r.titre,individu:r.individu||'',file:r.file}))},
+    async delRange(id){chk(await SB.from('rangements').delete().eq('id',id))},
     async copyFile(f){
       if(!f.path)return Object.assign({},f);
       var safe=String(f.name).replace(/[^\w.\-]+/g,'_'),np=ME.id+'/'+Date.now()+'_'+safe;
@@ -902,7 +908,8 @@ function asg(d){return (d.assignes&&d.assignes.length)?d.assignes:(d.assigne_a?[
 function isMine(d){return asg(d).indexOf(ME.id)>=0}
 function indiv(d){var n=(d.ind_nom||'').trim(),p=(d.ind_prenom||'').trim();return n||p?(n.toUpperCase()+(p?' '+p:'')).trim():''}
 function indivKey(d){return norm((d.ind_nom||'').trim()+' '+(d.ind_prenom||'').trim()).trim()}
-function names(d,long){var l=asg(d);return l.length?l.map(function(i){return long?whoLong(i):who(i)}).join(long?' ; ':', '):'—'}
+function resp(d){var a=asg(d);return (d.assigne_a&&a.indexOf(d.assigne_a)>=0)?d.assigne_a:(a[0]||null)}
+function names(d,long){var l=asg(d).slice(),r=resp(d);if(r){l=[r].concat(l.filter(function(x){return x!==r}))}return l.length?l.map(function(i){return long?whoLong(i):who(i)}).join(long?' ; ':', '):'—'}
 function isStar(d){return (d.etoile||[]).indexOf(ME.id)>=0}
 function starFirst(l){return l.map(function(d,i){return [d,i]}).sort(function(a,b){return (isStar(b[0])?1:0)-(isStar(a[0])?1:0)||a[1]-b[1]}).map(function(x){return x[0]})}
 function ficheHref(d){return '#individu-'+encodeURIComponent(indivKey(d))}
@@ -949,15 +956,26 @@ function bindFiles(root){
   (root||document).querySelectorAll('[data-fr]').forEach(function(b){b.addEventListener('click',async function(){
     var f=FREG[+b.getAttribute('data-fr')];if(!f)return;
     try{
+      var msg=FMSG[+b.getAttribute('data-fr')],mt0=f.meta||{};
+      var wh=await dlgOpen({title:'Ranger ce document',body:f.name+'\n\nOù voulez-vous le ranger ? Un seul endroit à la fois.',ok:'Continuer',options:[['docs','Dans les Documents rangés (sans dossier)'],['dossier','Dans un dossier (pièces du dossier)']]});
+      if(!wh)return;
+      if(wh==='docs'){
+        var cp0=await API.copyFile(f);await API.addRange({titre:mt0.titre||String(f.name).replace(/\.docx$/i,''),individu:mt0.individu||'',file:cp0});
+        if(msg){try{await API.updateMessage(msg.id,{statut:'rangee',rangee:'@docs'})}catch(e2){}}
+        await dlgOpen({title:'Document rangé',body:'« '+f.name+' » est rangé dans les Documents rangés (page Documents), au nom de '+(mt0.individu||'l’individu non précisé')+'.\n\nIl n’est lié à aucun dossier.',ok:'OK',info:true});if(msg)await refreshThread(true);return;
+      }
       var l=(await API.dossiers()).slice().sort(function(x,y){return (x.statut==='Classé')-(y.statut==='Classé')||(x.numero<y.numero?1:-1)});
       if(!l.length){flash('Aucun dossier où ranger ce document.',true);return}
       var id=await dlgOpen({title:'Ranger dans quel dossier ?',body:f.name,ok:'Ranger',options:l.map(function(d){return [d.id,d.numero+' · '+(indiv(d)||d.titre)+(d.statut==='Classé'?' (classé)':'')]})});
       if(!id)return;
-      var cp=await API.copyFile(f);var mt0=f.meta||{},lb=mt0.titre?('Document signé reçu : '+mt0.titre+(mt0.individu?' ('+mt0.individu+')':'')):('Document reçu par la messagerie : '+f.name);await API.addNote(id,lb,[cp]);await API.log(id,lb+' — rangé');var msg=FMSG[+b.getAttribute('data-fr')];
+      var cp=await API.copyFile(f),lb=mt0.titre?('Document signé reçu : '+mt0.titre+(mt0.individu?' ('+mt0.individu+')':'')):('Document reçu par la messagerie : '+f.name);await API.addNote(id,lb,[cp]);await API.log(id,lb+' — rangé');
       var d=l.filter(function(x){return x.id===id})[0];if(msg){try{await API.updateMessage(msg.id,{statut:'rangee',rangee:(d?d.numero+' · '+(indiv(d)||d.titre):'')})}catch(e2){}}
-      await dlgOpen({title:'Document lié au dossier',body:'« '+f.name+' » a bien été lié au dossier '+(d?d.numero+' · '+(indiv(d)||d.titre):'')+'.\n\nIl apparaît dans les Pièces du dossier ; la demande reste aussi dans la messagerie.',ok:'OK',info:true});if(msg)await refreshThread(true);
+      await dlgOpen({title:'Document lié au dossier',body:'« '+f.name+' » a bien été lié au dossier '+(d?d.numero+' · '+(indiv(d)||d.titre):'')+'.\n\nIl apparaît dans les Pièces du dossier ; il n’est pas dans les Documents rangés.',ok:'OK',info:true});if(msg)await refreshThread(true);
     }catch(err){flash(err.message,true)}
   })});
+  (root||document).querySelectorAll('[data-rdel]').forEach(function(b){b.addEventListener('click',async function(){
+    if(!await ask('Retirer ce document des Documents rangés ?\n\nLe message d’origine reste dans la messagerie.'))return;
+    try{await API.delRange(b.getAttribute('data-rdel'));flash('Document retiré.');route(true)}catch(e){flash(e.message,true)}})});
   (root||document).querySelectorAll('[data-fe]').forEach(function(b){b.addEventListener('click',function(){editFile(FREG[+b.getAttribute('data-fe')],FMSG[+b.getAttribute('data-fe')])})});
   (root||document).querySelectorAll('[data-fi]').forEach(function(a){a.addEventListener('click',async function(e){
     e.preventDefault();var f=FREG[+a.getAttribute('data-fi')];
@@ -1087,9 +1105,9 @@ function viewGuide(g){
 
 /* ===================== DOCUMENTS ===================== */
 async function viewDocuments(){
-  var nr=0;if(!isPolice()){try{nr=(await rangedDocs()).length}catch(x){}}
+  var nr=0;if(ROLE_RANGER()){try{nr=(await rangedDocs()).length}catch(x){}}
   var cats={};DOCS.forEach(function(d,i){d.i=i;(cats[d.cat]=cats[d.cat]||[]).push(d)});
-  var h='<div class="wrap page">'+(isPolice()?'':'<a class="rangebox" href="#documents-ranges">📁 Documents rangés <b>'+nr+'</b></a>')+pageHead('Documents types','Les modèles d’actes de la Justice. Téléchargez-les en Word ou en PDF, ou complétez et signez-les directement ici. Pour en envoyer un à un collègue, utilisez la messagerie.')+
+  var h='<div class="wrap page">'+(!ROLE_RANGER()?'':'<a class="rangebox" href="#documents-ranges">📁 Documents rangés <b>'+nr+'</b></a>')+pageHead('Documents types','Les modèles d’actes de la Justice. Téléchargez-les en Word ou en PDF, ou complétez et signez-les directement ici. Pour en envoyer un à un collègue, utilisez la messagerie.')+
   '<input class="filter" id="df" type="search" placeholder="Filtrer les documents (ex. mandat, jugement, plainte)" aria-label="Filtrer les documents" style="max-width:520px;margin-bottom:14px">';
   Object.keys(cats).forEach(function(c){
     h+='<section class="docs-cat"><h2 style="font-size:22px;margin:22px 0 10px">'+esc(c)+'</h2><div class="doclist">'+cats[c].map(function(d){
@@ -1131,7 +1149,7 @@ function stBadge(m){
   var lab=mt.titre?'<div class="dem"><b>'+esc(mt.titre)+'</b>'+(mt.individu?'<span>'+esc(mt.individu)+'</span>':'')+'</div>':'';
   var b;
   if(m.statut==='a_traiter')b='<div class="stb st-a">⏳ À traiter'+(mt.slots>1?' · '+Math.min(mt.signed||0,mt.slots)+'/'+mt.slots+' signatures':'')+'</div>';
-  else if(m.statut==='rangee')b='<div class="stb st-r">✓ Signé · 📁 Rangé'+(j&&m.rangee?' dans le dossier '+esc(m.rangee):'')+'</div>';
+  else if(m.statut==='rangee')b='<div class="stb st-r">✓ Signé · 📁 Rangé'+(j&&m.rangee==='@docs'?' dans les Documents':(j&&m.rangee?' dans le dossier '+esc(m.rangee):''))+'</div>';
   else b='<div class="stb st-s">✓ Signé</div>';
   return lab+b;
 }
@@ -1239,7 +1257,7 @@ async function viewDossiers(){
   ds=ds.filter(function(d){return (arch?d.statut==='Classé':(d.statut!=='Classé'&&(DQ.tab!=='mine'||isMine(d))))&&(!DQ.s||d.statut===DQ.s)&&(!v||norm([d.numero,indiv(d),d.titre,d.parties,d.juridiction,d.resume,names(d)].join(' ')).indexOf(v)>=0)});
   if(!arch)ds=starFirst(ds);
   var tb=function(k,l,n){return '<button class="tab'+(DQ.tab===k?' on':'')+'" data-tab="'+k+'" type="button">'+l+' ('+n+')</button>'};
-  var card=function(d){return '<a class="dcard" href="#dossier-'+qa(d.id)+'"><span class="dnum">'+(isStar(d)?'⭐ ':'')+esc(d.numero)+'</span><b>'+esc(d.titre)+'</b><span>'+(indiv(d)?'👤 '+esc(indiv(d))+' · ':'')+esc(d.juridiction||'')+(asg(d).length?' · '+esc(names(d)):'')+'</span><span class="stt st-'+qa(d.statut)+'">'+esc(d.statut)+'</span><small>'+(d.statut==='Classé'&&d.classe_at?'Classé le '+fdate(d.classe_at):'Mis à jour '+fdate(d.updated_at))+'</small></a>'};
+  var card=function(d){return '<a class="dcard" href="#dossier-'+qa(d.id)+'"><span class="dnum">'+(isStar(d)?'⭐ ':'')+esc(d.numero)+'</span><b>'+esc(d.titre)+'</b><span>'+(indiv(d)?'👤 '+esc(indiv(d))+' · ':'')+esc(d.juridiction||'')+(asg(d).length?' · En charge : '+esc(who(resp(d))):'')+'</span><span class="stt st-'+qa(d.statut)+'">'+esc(d.statut)+'</span><small>'+(d.statut==='Classé'&&d.classe_at?'Classé le '+fdate(d.classe_at):'Mis à jour '+fdate(d.updated_at))+'</small></a>'};
   return '<div class="wrap page">'+pageHead('Dossiers',arch?'Archives : les dossiers classés, qui restent consultables et exportables.':(DQ.tab==='mine'?'Les dossiers sur lesquels vous êtes chargé.':'Toutes les affaires en cours : parties, juridiction, état, pièces et notes.'))+'<div class="tabs" role="tablist">'+tb('mine','Mes dossiers',nM)+tb('all','Tous en cours',nC)+tb('arch','Classés',nA)+'</div>'+
   '<div class="bar"><input class="filter" id="dq" type="search" value="'+qa(DQ.q)+'" placeholder="Rechercher un dossier (individu, numéro, titre, parties)" aria-label="Rechercher un dossier"><select id="ds" aria-label="Filtrer par état"><option value="">Tous les états</option>'+(arch?'':opts(ACTIFS,DQ.s))+'</select>'+(isOPJ()?'':'<a class="btn" href="#nouveau-dossier">Nouveau dossier</a>')+'</div>'+
   (ds.length?'<div class="dlist">'+(arch?groupArch(ds,card):ds.map(card).join(''))+'</div>':'<p class="empty">'+(arch?'Aucun dossier classé.':(DQ.tab==='mine'?'Aucun dossier ne vous est confié pour l’instant. Voir l’onglet « Tous en cours ».':'Aucun dossier en cours ne correspond.'))+'</p>')+'</div>';
@@ -1252,20 +1270,21 @@ function bindDossiers(){
 }
 var FASG=[];
 function dossierForm(d){
-  d=d||{};FASG=d.id?asg(d).slice():[ME.id];
+  d=d||{};FASG=d.id?(resp(d)?[resp(d)].concat(asg(d).filter(function(x){return x!==resp(d)})):asg(d).slice()):[ME.id];
   var ms=approved();
   return '<form id="df" class="form wide"><div class="two"><label>Numéro<input id="f_num" value="'+qa(d.numero||(new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000)))+'" required></label><label>État<select id="f_st">'+opts(d.statut==='Classé'?STATUTS:ACTIFS,d.statut||'Ouvert')+'</select></label></div>'+
   '<div class="two"><label>Nom de l’individu<input id="f_in" list="f_indl" value="'+qa(d.ind_nom||'')+'" required autocomplete="off"></label><label>Prénom de l’individu<input id="f_ip" value="'+qa(d.ind_prenom||'')+'" required autocomplete="off"></label></div><datalist id="f_indl"></datalist><p class="sub small">La personne visée par le dossier. Les dossiers classés sont rangés par individu : écrivez toujours le nom de la même façon.</p><div id="f_dup" aria-live="polite"></div>'+
   '<label>Titre de l’affaire<input id="f_ti" value="'+qa(d.titre||'')+'" required></label><div class="two"><label>Juridiction<select id="f_ju">'+opts(JURIDICTIONS,d.juridiction||'Parquet')+'</select></label>'+
-  '<div class="lbl"><span>Chargés du dossier (5 au maximum)</span><div id="f_asl" class="pend"></div><select id="f_asadd" aria-label="Ajouter une personne au dossier"></select></div></div>'+
-  '<p class="sub small">🔒 Seuls les administrateurs, la personne qui ouvre le dossier et les personnes chargées ci-dessus le voient.</p>'+
+  '<div class="lbl"><span>En charge du dossier et intervenants (5 personnes au maximum)</span><div id="f_asl" class="pend"></div><select id="f_asadd" aria-label="Ajouter une personne au dossier"></select></div></div>'+
+  '<p class="sub small">🔒 La première personne est <b>en charge</b> du dossier ; les autres sont des intervenants (elles voient le dossier et peuvent y travailler). Seuls les administrateurs, la personne qui ouvre le dossier et ces personnes le voient.</p>'+
   '<label>Parties (qui contre qui)<input id="f_pa" value="'+qa(d.parties||'')+'"></label><label>Résumé des faits<textarea id="f_re" rows="5">'+esc(d.resume||'')+'</textarea></label>'+
   '<div class="comprow"><button class="btn" type="submit">Enregistrer</button><button class="btn" type="button" id="f_savego">Enregistrer et revenir aux dossiers</button><a class="btn ghost" href="#'+(d.id?'dossier-'+qa(d.id):'dossiers')+'">Annuler</a></div></form>';
 }
 async function viewNewDossier(){await loadMembers();return '<div class="wrap page">'+pageHead('Nouveau dossier','',' <a href="#dossiers">Dossiers</a> › Nouveau')+dossierForm()+'</div>'}
 function drawAsg(){
   var l=$('#f_asl'),s=$('#f_asadd');if(!l||!s)return;
-  l.innerHTML=FASG.map(function(i,k){return '<span class="fchip">👤 '+esc(whoLong(i))+' <button type="button" data-ra="'+k+'" aria-label="Retirer">×</button></span>'}).join('')||'<small>Personne pour l’instant.</small>';
+  l.innerHTML=FASG.map(function(i,k){return '<span class="fchip">'+(k===0?'★ <b>En charge</b> · ':'')+'👤 '+esc(whoLong(i))+(k>0?' <button type="button" data-rp="'+k+'" title="Mettre en charge">★ mettre en charge</button>':'')+' <button type="button" data-ra="'+k+'" aria-label="Retirer">×</button></span>'}).join('')||'<small>Personne pour l’instant.</small>';
+  l.querySelectorAll('[data-rp]').forEach(function(b){b.addEventListener('click',function(){var k=+b.getAttribute('data-rp'),x=FASG.splice(k,1)[0];FASG.unshift(x);drawAsg()})});
   l.querySelectorAll('[data-ra]').forEach(function(b){b.addEventListener('click',function(){FASG.splice(+b.getAttribute('data-ra'),1);drawAsg()})});
   var rest=approved().filter(function(m){return FASG.indexOf(m.id)<0&&!isAgentM(m)});
   s.innerHTML=FASG.length>=5?'<option value="">5 personnes au maximum</option>':'<option value="">Ajouter une personne…</option>'+rest.map(function(m){return '<option value="'+qa(m.id)+'">'+esc(m.nom+' · '+m.grade)+'</option>'}).join('');
@@ -1284,6 +1303,7 @@ function bindDossierForm(id){
   drawAsg();$('#f_asadd').addEventListener('change',function(e){if(e.target.value&&FASG.length<5&&FASG.indexOf(e.target.value)<0){FASG.push(e.target.value)}drawAsg()});
   f.addEventListener('submit',async function(e){
     e.preventDefault();
+    if(!FASG.length){flash('Désignez au moins une personne en charge du dossier.',true);return}
     var d={numero:$('#f_num').value.trim(),statut:$('#f_st').value,ind_nom:$('#f_in').value.trim(),ind_prenom:$('#f_ip').value.trim(),titre:$('#f_ti').value.trim(),juridiction:$('#f_ju').value,assignes:FASG.slice(),assigne_a:FASG[0]||null,parties:$('#f_pa').value.trim(),resume:$('#f_re').value.trim()};
     if(id)d.id=id;
     if(!id){var dm=dupFind().filter(function(x){return x.statut!=='Classé'});if(dm.length&&!await ask('Un dossier en cours existe déjà pour cette personne ('+dm.map(function(x){return x.numero}).join(', ')+').\n\nCréer quand même un nouveau dossier ?'))return}
@@ -1324,9 +1344,12 @@ async function viewDossier(id){
   var info='<dl class="pen big"><div><dt>Juridiction</dt><dd>'+esc(d.juridiction||'—')+'</dd></div><div><dt>Parties</dt><dd>'+esc(d.parties||'—')+'</dd></div><div><dt>Ouvert par</dt><dd>'+esc(whoLong(d.created_by))+' · '+fdate(d.created_at)+'</dd></div></dl>';
   /* personnes chargées (ajout / retrait direct) */
   var as=asg(d),restM=approved().filter(function(m){return as.indexOf(m.id)<0&&!isAgentM(m)});
-  var asgH='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Personnes chargées du dossier ('+as.length+' / 5)</h2>'+
-    '<div class="mf" style="margin-top:8px">'+(as.map(function(i){return '<span class="pc"><span class="fchip">👤 '+esc(whoLong(i))+'</span><button class="pdel" type="button" data-unasg="'+qa(i)+'" title="Retirer du dossier" aria-label="Retirer '+qa(who(i))+' du dossier">×</button></span>'}).join('')||'<small>Personne pour l’instant : seuls les administrateurs et celui qui a ouvert le dossier le voient.</small>')+'</div>'+
-    '<div class="inl"><select id="as_sel" aria-label="Ajouter une personne au dossier"'+(as.length>=5?' disabled':'')+'>'+(as.length>=5?'<option value="">5 personnes au maximum</option>':'<option value="">Ajouter une personne…</option>'+restM.map(function(m){return '<option value="'+qa(m.id)+'">'+esc(m.nom+' · '+m.grade)+'</option>'}).join(''))+'</select></div></section>';
+  var rs=resp(d),oth=as.filter(function(x){return x!==rs});
+  var asgH='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">En charge du dossier</h2>'+
+    '<div class="mf" style="margin-top:8px">'+(rs?'<span class="pc"><span class="fchip" style="font-weight:600">★ En charge : '+esc(whoLong(rs))+'</span><button class="pdel" type="button" data-resp="'+qa(rs)+'" style="display:none" aria-hidden="true" tabindex="-1"></button></span>':'<small>Personne n’est en charge : désignez quelqu’un ci-dessous.</small>')+'</div>'+
+    '<h3 style="font-size:16px;margin:14px 0 0">Intervenants (voient le dossier et peuvent y travailler) — '+as.length+' / 5 personnes au total</h3>'+
+    '<div class="mf" style="margin-top:8px">'+(oth.map(function(i){return '<span class="pc"><span class="fchip">👤 '+esc(whoLong(i))+'</span><button class="fchip edt" type="button" data-mkresp="'+qa(i)+'" title="Mettre cette personne en charge du dossier">★ Mettre en charge</button><button class="pdel" type="button" data-unasg="'+qa(i)+'" title="Retirer du dossier" aria-label="Retirer '+qa(who(i))+' du dossier">×</button></span>'}).join('')||'<small>Aucun intervenant.</small>')+'</div>'+
+    '<div class="inl"><select id="as_sel" aria-label="Ajouter un intervenant"'+(as.length>=5?' disabled':'')+'>'+(as.length>=5?'<option value="">5 personnes au maximum</option>':'<option value="">Ajouter un intervenant…</option>'+restM.map(function(m){return '<option value="'+qa(m.id)+'">'+esc(m.nom+' · '+m.grade)+'</option>'}).join(''))+'</select></div></section>';
   /* dossiers liés */
   var lies=(d.lies||[]).map(function(i){return all.filter(function(x){return x.id===i})[0]}).filter(Boolean);
   var canLk=all.filter(function(x){return x.id!==d.id&&(d.lies||[]).indexOf(x.id)<0});
@@ -1336,7 +1359,7 @@ async function viewDossier(id){
   /* chronologie */
   var now=Date.now();
   var ups=(EX.ech||[]).filter(function(e){return !e.done}).sort(function(a,b){return a.date_heure<b.date_heure?-1:1});
-  var icLog=function(t){return /^(État|Dossier (classé|rouvert))/.test(t)?'🔄':/chéance/i.test(t)?'📅':/^Pièce/.test(t)?'📎':/^(Personne|Modification : chargés)/.test(t)?'👤':/lié|lien/i.test(t)?'🔗':/export/i.test(t)?'📤':'✏️'};
+  var icLog=function(t){return /^(État|Dossier (classé|rouvert))/.test(t)?'🔄':/chéance/i.test(t)?'📅':/^Pièce/.test(t)?'📎':/^(Personne|Intervenant|Modification : chargés)/.test(t)?'👤':/lié|lien/i.test(t)?'🔗':/export/i.test(t)?'📤':'✏️'};
   var ev=[];
   notes.forEach(function(n){if(n.body||(n.files&&n.files.length))ev.push({at:n.created_at,by:n.author,ic:'📝',h:'<div class="mb">'+linkify(esc(n.body||'').replace(/\n/g,'<br>'),null)+'</div>'+((!n.body&&n.files&&n.files.length)?'<div class="mb"><small>📎 '+n.files.map(function(f){return esc(f.name)}).join(', ')+' (voir « Pièces » ci-dessus)</small></div>':'')})});
   hist.forEach(function(l){if(/^Note ajoutée/.test(l.action))return;ev.push({at:l.created_at,by:l.author,ic:icLog(l.action),h:'<div class="mb">'+esc(l.action)+'</div>'})});
@@ -1389,11 +1412,11 @@ function bindDossier(id){
   var tr=$('#dtr');if(tr)tr.addEventListener('change',async function(){
     var u=tr.value;if(!u)return;
     try{var d=await API.dossier(id),as=asg(d),swap=as.indexOf(ME.id)>=0;
-      var l=swap?as.map(function(i){return i===ME.id?u:i}):[u];
+      var l=swap?as.map(function(i){return i===ME.id?u:i}):[u];l=l.filter(function(x,k){return l.indexOf(x)===k});
       var hold=!isAdm()&&d.created_by!==ME.id&&l.indexOf(ME.id)<0;
-      if(!await ask('Confier ce dossier à '+whoLong(u)+' ?\n\n'+(swap?'Vous ne serez plus chargé du dossier à sa place.':'Les personnes chargées actuellement ('+(names(d)||'aucune')+') seront remplacées.')+(hold?'\nVous ne verrez plus ce dossier.':''))){tr.value='';return}
-      await API.upd('dossiers',id,{assignes:l,assigne_a:l[0]||null});
-      await API.log(id,'Dossier confié à '+whoLong(u)+(swap?' (à la place de '+who(ME.id)+')':' (anciens chargés : '+(as.map(who).join(', ')||'aucun')+')'));
+      if(!await ask('Confier ce dossier à '+whoLong(u)+' ?\n\n'+'\n'+whoLong(u)+' sera la personne EN CHARGE du dossier.\n\n'+(swap?'Vous ne serez plus sur le dossier à sa place.':'Les personnes actuellement sur le dossier ('+(names(d)||'aucune')+') seront remplacées.')+(hold?'\nVous ne verrez plus ce dossier.':''))){tr.value='';return}
+      await API.upd('dossiers',id,{assignes:l,assigne_a:u});
+      await API.log(id,'Dossier confié à '+whoLong(u)+' : il est maintenant en charge'+(swap?' (à la place de '+who(ME.id)+')':' (anciens chargés : '+(as.map(who).join(', ')||'aucun')+')'));
       if(hold){flash('Dossier confié à '+who(u)+'.');location.hash='dossiers'}else{flash('Dossier confié à '+who(u)+'.');route(true)}
     }catch(e){flash(e.message,true);tr.value=''}
   });
@@ -1402,15 +1425,21 @@ function bindDossier(id){
   });
   var asl=$('#as_sel');if(asl)asl.addEventListener('change',async function(){
     if(!asl.value)return;
-    try{var d=await API.dossier(id),l=asg(d).slice();if(l.length>=5||l.indexOf(asl.value)>=0)return;l.push(asl.value);await API.upd('dossiers',id,{assignes:l,assigne_a:l[0]||null});await API.log(id,'Personne chargée ajoutée : '+whoLong(asl.value));flash('Personne ajoutée au dossier : elle le voit maintenant.');route(true)}catch(e){flash(e.message,true)}
+    try{var d=await API.dossier(id),l=asg(d).slice();if(l.length>=5||l.indexOf(asl.value)>=0)return;l.push(asl.value);await API.upd('dossiers',id,{assignes:l,assigne_a:resp(d)||l[0]});await API.log(id,'Intervenant ajouté : '+whoLong(asl.value));flash('Intervenant ajouté : il voit maintenant le dossier.');route(true)}catch(e){flash(e.message,true)}
   });
+  document.querySelectorAll('[data-mkresp]').forEach(function(b){b.addEventListener('click',async function(){
+    var u=b.getAttribute('data-mkresp');
+    try{var d=await API.dossier(id);if(!await ask('Mettre '+whoLong(u)+' en charge de ce dossier ?\n\n'+(resp(d)?whoLong(resp(d))+' reste sur le dossier comme intervenant.':'')))return;
+      await API.upd('dossiers',id,{assigne_a:u});await API.log(id,whoLong(u)+' est maintenant en charge du dossier'+(resp(d)?' (auparavant : '+who(resp(d))+')':''));flash(who(u)+' est maintenant en charge du dossier.');route(true)}catch(e){flash(e.message,true)}
+  })});
   document.querySelectorAll('[data-unasg]').forEach(function(b){b.addEventListener('click',async function(){
     var u=b.getAttribute('data-unasg');
     try{var d=await API.dossier(id);
+      if(u===resp(d)){flash('Cette personne est en charge : désignez d’abord quelqu’un d’autre (★ Mettre en charge).',true);return}
       var hold=!isAdm()&&d.created_by!==ME.id&&u===ME.id;
       if(!await ask('Retirer '+whoLong(u)+' de ce dossier ?'+(hold?'\n\nC’est vous : vous ne pourrez plus voir ce dossier.':'\n\nCette personne ne verra plus le dossier.')))return;
       var l=asg(d).filter(function(x){return x!==u});
-      await API.upd('dossiers',id,{assignes:l,assigne_a:l[0]||null});await API.log(id,'Personne chargée retirée : '+whoLong(u));
+      await API.upd('dossiers',id,{assignes:l,assigne_a:resp(d)});await API.log(id,'Intervenant retiré : '+whoLong(u));
       if(hold){flash('Vous n’êtes plus chargé de ce dossier.');location.hash='dossiers'}else{flash('Personne retirée du dossier.');route(true)}
     }catch(e){flash(e.message,true)}
   })});
@@ -1448,7 +1477,7 @@ async function buildExport(d,notes,hist){
   return '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Dossier '+e(d.numero)+'</title><style>'+css+'</style></head><body>'+
   printHead('Dossier n° '+e(d.numero),e(d.titre),'Dossier n° '+e(d.numero))+
   (d.statut==='Classé'?'<div class="cl">DOSSIER CLASSÉ'+(d.classe_at?' le '+fdate(d.classe_at):'')+(d.motif_classement?' — motif : '+e(d.motif_classement):'')+'</div>':'')+
-  '<h2>Renseignements</h2><table><tr><td>Individu</td><td>'+e(indiv(d)||'—')+'</td></tr><tr><td>État</td><td>'+e(d.statut)+'</td></tr><tr><td>Juridiction</td><td>'+e(d.juridiction||'—')+'</td></tr><tr><td>Chargés du dossier</td><td>'+e(names(d,true))+'</td></tr><tr><td>Parties</td><td>'+e(d.parties||'—')+'</td></tr>'+(lie.length?'<tr><td>Dossiers liés</td><td>'+lie.map(function(x){return e(x.numero+' ('+x.titre+')')}).join(' ; ')+'</td></tr>':'')+'<tr><td>Ouvert par</td><td>'+e(whoLong(d.created_by))+' le '+fdate(d.created_at)+'</td></tr></table>'+
+  '<h2>Renseignements</h2><table><tr><td>Individu</td><td>'+e(indiv(d)||'—')+'</td></tr><tr><td>État</td><td>'+e(d.statut)+'</td></tr><tr><td>Juridiction</td><td>'+e(d.juridiction||'—')+'</td></tr><tr><td>En charge du dossier</td><td>'+e(resp(d)?whoLong(resp(d)):'—')+'</td></tr><tr><td>Intervenants</td><td>'+e(asg(d).filter(function(x){return x!==resp(d)}).map(whoLong).join(' ; ')||'—')+'</td></tr><tr><td>Parties</td><td>'+e(d.parties||'—')+'</td></tr>'+(lie.length?'<tr><td>Dossiers liés</td><td>'+lie.map(function(x){return e(x.numero+' ('+x.titre+')')}).join(' ; ')+'</td></tr>':'')+'<tr><td>Ouvert par</td><td>'+e(whoLong(d.created_by))+' le '+fdate(d.created_at)+'</td></tr></table>'+
   '<h2>Résumé des faits</h2><p>'+nl(d.resume||'Aucun résumé.')+'</p>'+
   '<h2>Notes et décisions ('+notes.length+')</h2>'+(notes.map(function(n){return '<div class="n"><small>'+e(whoLong(n.author))+' — '+fdate(n.created_at)+'</small><br>'+nl(n.body)+'</div>'}).join('')||'<p>Aucune note.</p>')+
   '<h2>Pièces jointes ('+np+')</h2>'+(np?'<ul>'+piecesHtml+'</ul><p><i>Les fichiers eux-mêmes se téléchargent depuis le dossier et se transmettent séparément.</i></p>':'<p>Aucune pièce.</p>')+
@@ -1469,12 +1498,12 @@ async function viewSearchAll(q){
   var hd=ds.filter(function(d){return has([d.numero,indiv(d),d.titre,d.parties,d.juridiction,d.resume,d.statut,names(d)].join(' '))});
   var hn=notes.filter(function(n){return dm[n.dossier_id]&&n.body&&has(n.body)});
   var hp=[];notes.forEach(function(n){if(!dm[n.dossier_id])return;(n.files||[]).forEach(function(f){if(has(f.name))hp.push({f:f,n:n})})});
-  var hr=[];try{hr=(await rangedDocs()).filter(function(x){return has([x.ind,x.meta.titre,x.f.name,x.d.numero].join(' '))})}catch(x){}
+  var hr=[];try{hr=(await rangedDocs()).filter(function(x){return has([x.ind,x.meta.titre,x.f.name].join(' '))})}catch(x){}
   var sec=function(titre,n,body){return n?'<section class="block" style="padding-top:8px"><h2 style="font-size:22px">'+titre+' ('+n+')</h2>'+body+'</section>':''};
   var hit=function(d,where,b,p){return '<li><a class="hit" href="#dossier-'+qa(d.id)+'"><span class="where">'+where+'</span><b>'+b+'</b>'+(p?'<p>'+p+'</p>':'')+'</a></li>'};
   var out=sec('Dossiers',hd.length,'<div class="dlist">'+hd.slice(0,20).map(function(d){return '<a class="dcard" href="#dossier-'+qa(d.id)+'"><span class="dnum">'+(isStar(d)?'⭐ ':'')+esc(d.numero)+'</span><b>'+esc(d.titre)+'</b><span>'+(indiv(d)?'👤 '+esc(indiv(d))+' · ':'')+esc(d.juridiction||'')+'</span><span class="stt st-'+qa(d.statut)+'">'+esc(d.statut)+'</span></a>'}).join('')+'</div>')+
     sec('Notes',hn.length,'<ul class="res">'+hn.slice(0,20).map(function(n){var d=dm[n.dossier_id];return hit(d,'Note · dossier '+esc(d.numero)+' · '+fdate(n.created_at),esc(d.titre),snipN(n.body,t))}).join('')+'</ul>')+
-    sec('Documents rangés',hr.length,'<ul class="res">'+hr.slice(0,20).map(function(x){return hit(x.d,'Document rangé · dossier '+esc(x.d.numero)+' · '+fdate(x.at),esc(x.meta.titre),esc(x.ind||''))}).join('')+'</ul>')+
+    sec('Documents rangés',hr.length,'<ul class="res">'+hr.slice(0,20).map(function(x){return '<li><a class="hit" href="#documents-ranges"><span class="where">Document rangé · '+fdate(x.at)+'</span><b>'+esc(x.meta.titre)+'</b>'+(x.ind?'<p>'+esc(x.ind)+'</p>':'')+'</a></li>'}).join('')+'</ul>')+
     sec('Pièces',hp.length,'<ul class="res">'+hp.slice(0,20).map(function(x){var d=dm[x.n.dossier_id];return hit(d,'Pièce · dossier '+esc(d.numero)+' · '+fdate(x.n.created_at),'📎 '+esc(x.f.name),esc(d.titre))}).join('')+'</ul>');
   if(!out)return html;
   var nc=search(q).length;
@@ -1506,12 +1535,12 @@ async function viewIndividu(k){
   if(!ds.length)return '<div class="wrap page">'+pageHead('Fiche introuvable','Aucun dossier visible par vous pour cette personne.')+'<a class="btn" href="#dossiers">Retour aux dossiers</a></div>';
   var enc=starFirst(ds.filter(function(d){return d.statut!=='Classé'}).sort(function(a,b){return a.updated_at<b.updated_at?1:-1}));
   var cl=ds.filter(function(d){return d.statut==='Classé'}).sort(function(a,b){return (b.classe_at||'')<(a.classe_at||'')?-1:1});
-  var card=function(d){return '<a class="dcard" href="#dossier-'+qa(d.id)+'"><span class="dnum">'+(isStar(d)?'⭐ ':'')+esc(d.numero)+'</span><b>'+esc(d.titre)+'</b><span>'+esc(d.juridiction||'')+(asg(d).length?' · '+esc(names(d)):'')+'</span><span class="stt st-'+qa(d.statut)+'">'+esc(d.statut)+'</span><small>'+(d.statut==='Classé'&&d.classe_at?'Classé le '+fdate(d.classe_at)+(d.motif_classement?' — '+esc(d.motif_classement):''):'Mis à jour '+fdate(d.updated_at))+'</small></a>'};
+  var card=function(d){return '<a class="dcard" href="#dossier-'+qa(d.id)+'"><span class="dnum">'+(isStar(d)?'⭐ ':'')+esc(d.numero)+'</span><b>'+esc(d.titre)+'</b><span>'+esc(d.juridiction||'')+(asg(d).length?' · En charge : '+esc(who(resp(d))):'')+'</span><span class="stt st-'+qa(d.statut)+'">'+esc(d.statut)+'</span><small>'+(d.statut==='Classé'&&d.classe_at?'Classé le '+fdate(d.classe_at)+(d.motif_classement?' — '+esc(d.motif_classement):''):'Mis à jour '+fdate(d.updated_at))+'</small></a>'};
   var nxt=D0.ech.filter(function(x){return !x.e.done}).sort(function(a,b){return a.e.date_heure<b.e.date_heure?-1:1});
   FREG=[];
   var pcs=D0.pcs.sort(function(a,b){return a.at<b.at?1:-1});
-  var rdocs=[];try{var kn=norm(indiv(ds[0]));rdocs=(await rangedDocs()).filter(function(x){return ds.some(function(d){return d.id===x.d.id})||norm(x.ind)===kn})}catch(x){}
-  var rdH=rdocs.length?'<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Documents de la Police ('+rdocs.length+')</h2><div class="doclist">'+rdocs.map(rangedRow).join('')+'</div></section>':'';
+  var rdocs=[];try{var kn=norm(indiv(ds[0]));rdocs=(await rangedDocs()).filter(function(x){return norm(x.ind)===kn})}catch(x){}
+  var rdH=rdocs.length?'<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Documents rangés ('+rdocs.length+')</h2><div class="doclist">'+rdocs.map(rangedRow).join('')+'</div></section>':'';
   return '<div class="wrap page"><div class="crumb"><a href="#accueil">Accueil</a> › <a href="#dossiers">Dossiers</a> › Fiche d’individu</div>'+
   '<div class="ph"><div><div class="dnum">Fiche d’individu</div><h1>'+esc(indiv(ds[0]))+'</h1></div><div class="dact"><button class="btn ghost" id="ipdf" type="button">Exporter la fiche en PDF</button></div></div>'+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Résumé</h2><p class="res-txt">'+esc(indivSummary(ds))+'</p>'+
@@ -2028,7 +2057,7 @@ async function openEditor(blob,outName,title,msg){
 /* OPJ : consultation seule d'un dossier (le serveur refuse aussi toute écriture) */
 function roStrip(){
   var m=$('#main');if(!m)return;
-  m.querySelectorAll('[data-unasg]').forEach(function(b){var id=b.getAttribute('data-unasg');if(id!==ME.id&&b.parentNode){var a=document.createElement('a');a.className='fchip';a.href='#messages-dm-'+id;a.textContent='✉ Écrire';a.title='Écrire à cette personne chargée du dossier';b.parentNode.appendChild(a)}});
+  m.querySelectorAll('[data-unasg],[data-resp]').forEach(function(b){var id=b.getAttribute('data-unasg')||b.getAttribute('data-resp');if(id!==ME.id&&b.parentNode){var a=document.createElement('a');a.className='fchip';a.href='#messages-dm-'+id;a.textContent='✉ Écrire';a.title='Écrire à cette personne chargée du dossier';b.parentNode.appendChild(a)}});
   m.classList.add('ro');
   var pg=m.querySelector('.page');if(pg&&!pg.querySelector('.robanner')){var d=document.createElement('p');d.className='robanner';d.textContent='Consultation seule : en tant qu’OPJ, vous voyez les dossiers dont vous êtes chargé sans pouvoir les modifier. Pour une demande, écrivez à la personne chargée (✉) ou utilisez les salons Police de la messagerie.';pg.insertBefore(d,pg.firstChild.nextSibling||null)}
 }
@@ -2036,18 +2065,17 @@ function roStrip(){
 
 /* ---------- Documents rangés (demandes de la Police liées à un dossier), par nom et prénom de l'individu ---------- */
 async function rangedDocs(){
-  var ds=await API.dossiers(),dm={};ds.forEach(function(d){dm[d.id]=d});
-  var notes=[];try{notes=await API.allNotes()}catch(x){}
-  var out=[];
-  notes.forEach(function(n){var d=dm[n.dossier_id];if(!d)return;(n.files||[]).forEach(function(f){if(f&&f.meta&&f.meta.titre)out.push({f:f,meta:f.meta,d:d,at:n.created_at,ind:(f.meta.individu||'').trim()})})});
+  if(!ROLE_RANGER())return [];
+  var l=[];try{l=await API.ranges()}catch(x){}
+  var out=l.filter(function(r){return r.file}).map(function(r){return {id:r.id,f:r.file,meta:{titre:r.titre||r.file.name,individu:r.individu||''},at:r.created_at,by:r.created_by,ind:(r.individu||'').trim()}});
   out.sort(function(a,b){var x=norm(a.ind||'~'),y=norm(b.ind||'~');return x<y?-1:x>y?1:(a.at<b.at?1:-1)});
   return out;
 }
 function rangedRow(x){
   FREG.push(x.f);var i=FREG.length-1;
-  return '<div class="docrow rg"><span class="dn"><b>'+esc(x.meta.titre)+'</b><small>'+fdate(x.at)+' · dossier <a href="#dossier-'+qa(x.d.id)+'">'+esc(x.d.numero)+'</a></small>'+
+  return '<div class="docrow rg"><span class="dn"><b>'+esc(x.meta.titre)+'</b><small>Rangé le '+fdate(x.at)+' par '+esc(who(x.by))+'</small>'+
     ((x.f.signs&&x.f.signs.length)?'<small class="visa">'+x.f.signs.map(function(s){return '✓ '+esc(s)}).join('<br>')+'</small>':'')+'</span>'+
-    '<a class="fchip" href="#" data-fi="'+i+'">📎 Ouvrir</a><span></span></div>';
+    '<a class="fchip" href="#" data-fi="'+i+'">📎 Ouvrir</a>'+((x.by===ME.id||isAdm())?'<button class="fchip edt" type="button" data-rdel="'+qa(x.id)+'">Retirer</button>':'<span></span>')+'</div>';
 }
 async function viewRanges(){
   var l=await rangedDocs();FREG=[];
@@ -2055,7 +2083,7 @@ async function viewRanges(){
   l.forEach(function(x){var k=x.ind||'Individu non précisé';if(!cur||cur.k!==k){cur={k:k,l:[]};groups.push(cur)}cur.l.push(x)});
   return '<div class="wrap page">'+pageHead('Documents rangés','Les documents signés rangés dans un dossier, classées par nom et prénom de l’individu.','<a href="#documents">Documents</a> › Documents rangés')+
     '<a class="btn ghost" href="#documents">← Documents types</a>'+
-    (groups.length?groups.map(function(g){return '<section class="docs-cat"><h2 style="font-size:20px;margin:22px 0 8px">👤 '+esc(g.k)+' <small style="font-weight:400">('+g.l.length+')</small></h2><div class="doclist">'+g.l.map(rangedRow).join('')+'</div></section>'}).join(''):'<p class="sub" style="margin-top:18px">Aucun document rangé pour l’instant. Un document apparaît ici quand un document signé reçu en message est rangé dans un dossier.</p>')+'</div>';
+    (groups.length?groups.map(function(g){return '<section class="docs-cat"><h2 style="font-size:20px;margin:22px 0 8px">👤 '+esc(g.k)+' <small style="font-weight:400">('+g.l.length+')</small></h2><div class="doclist">'+g.l.map(rangedRow).join('')+'</div></section>'}).join(''):'<p class="sub" style="margin-top:18px">Aucun document rangé pour l’instant. Un document apparaît ici quand un document signé reçu en message est rangé dans les Documents rangés (et non dans un dossier).</p>')+'</div>';
 }
 
 /* ===================== NAVIGATION ET DÉMARRAGE ===================== */
