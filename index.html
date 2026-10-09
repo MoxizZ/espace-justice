@@ -229,6 +229,9 @@ footer .flinks a{color:#fff;margin-right:14px}
 .plform .hp{position:absolute;left:-9999px;height:0;overflow:hidden}
 .plsig{background:#F7F2E0;border:1px dashed var(--gold);border-radius:10px;padding:12px 14px;font-style:italic;color:#002060;font-weight:600;min-height:44px}
 .plform .chk{display:flex;gap:10px;align-items:flex-start;font-weight:600}.plform .chk input{width:auto;margin-top:4px}
+.plsuivi{max-width:820px;margin:-18px 0 26px;padding:12px 16px;border:1px dashed var(--line);border-radius:10px;background:var(--surface);display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.plsuivi span{color:var(--muted);font-size:14px}.plsuivi a{font-weight:600}
+.sv{display:flex;gap:0;margin:18px 0;max-width:640px}.sv div{flex:1;text-align:center;padding:12px 6px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-weight:600;font-size:15px}.sv div:first-child{border-radius:10px 0 0 10px}.sv div:last-child{border-radius:0 10px 10px 0}.sv div.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.svmsg{max-width:640px;border-left:4px solid #B8912F;background:#FBF6E4;border-radius:8px;padding:14px 16px;margin:10px 0}.svmsg small{display:block;color:var(--muted);margin-top:6px}
 .plerr{color:var(--red);font-weight:600;min-height:20px}.plok{background:#EAF6EC;border:1px solid #9BCBA3;border-radius:12px;padding:20px 22px;max-width:640px}.plok b.num{font-size:22px;font-family:var(--serif)}
 .plform button[type=submit]{background:var(--navy);color:#fff;border:0;border-radius:10px;padding:13px 22px;font-size:16px;font-weight:700;cursor:pointer}.plform button[disabled]{opacity:.5;cursor:not-allowed}
 /* ===== Espace interne ===== */
@@ -454,6 +457,7 @@ dl.pen.big{max-width:820px;margin-top:18px}
 @media print{body.printing>*:not(.edmod){display:none!important}body.printing .edmod{position:static;background:none;padding:0;display:block}body.printing .edbox{max-height:none;box-shadow:none;padding:0;max-width:none}body.printing .edbox>*:not(.edpage){display:none!important}body.printing .edpage{overflow:visible;background:none;padding:0}body.printing .edpage section.docx{box-shadow:none}}
 
 .msgside .dmx{margin-left:auto;background:none;border:0;color:var(--muted);font-size:16px;line-height:1;cursor:pointer;padding:0 4px;border-radius:4px}.msgside .dmx:hover{background:#f3d9d9;color:#a00}
+.plcard{margin-top:10px;padding:10px 12px;border:1px dashed #B8912F;background:#FBF6E4;border-radius:8px}.plcard.done{border-style:solid;border-color:#9BCBA3;background:#EAF6EC}.plcard small{display:block;margin-top:6px;color:#555}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -841,6 +845,7 @@ if(!LIVE){
     async allNotes(){var ok={};ST.dossiers.forEach(function(d){if(canSeeD(d)&&!d.deleted_at)ok[d.id]=1});return ST.notes.filter(function(n){return ok[n.dossier_id]})},
     async dossier(id){var d=ST.dossiers.filter(function(d){return d.id===id})[0];return d&&canSeeD(d)?d:null},
     async saveDossier(d){if(d.id){var x=ST.dossiers.filter(function(y){return y.id===d.id})[0];Object.assign(x,d,{updated_at:nowIso()})}else{d.id=uid();d.created_by=ME.id;d.created_at=d.updated_at=nowIso();ST.dossiers.push(d)}save();return d},
+    async prendrePlainte(pid){var m=ST.messages.filter(function(x){return x.plainte_id===pid})[0];if(!m)throw new Error('Plainte introuvable.');if(m.plainte_prise_par)throw new Error('Ce dossier a déjà été pris par un autre magistrat.');if(!(ME.role==='admin'||ME.role==='super'||(ME.service==='Parquet'&&/^(Procureur|Substitut)/.test(ME.grade))))throw new Error('Seul un procureur ou un substitut peut prendre ce dossier.');var p=m.pl||{};var d={id:uid(),numero:p.numero,titre:p.titre,statut:'Ouvert',juridiction:'Parquet',parties:p.parties,resume:p.resume,assigne_a:ME.id,assignes:[ME.id],created_by:ME.id,ind_nom:p.inom||'',ind_prenom:p.ipre||'',lies:[],etoile:[],created_at:nowIso(),updated_at:nowIso()};ST.dossiers.push(d);m.plainte_prise_par=ME.id;m.plainte_dossier=d.id;ST.log=ST.log||[];ST.log.push({id:uid(),dossier_id:d.id,author:ME.id,action:'Plainte en ligne prise en charge (n° '+p.numero+')',created_at:nowIso()});save();return d.id},
     async log(id,texte){ST.log=ST.log||[];ST.log.push({id:uid(),dossier_id:id,author:ME.id,action:texte,created_at:nowIso()});save()},
     async history(id){if(!(await API.dossier(id)))return [];return (ST.log||[]).filter(function(l){return l.dossier_id===id}).sort(function(x,y){return x.created_at<y.created_at?1:-1})},
     async deleteDossier(id){ST.log=(ST.log||[]).filter(function(l){return l.dossier_id!==id});ST.dossiers=ST.dossiers.filter(function(d){return d.id!==id});ST.notes=ST.notes.filter(function(n){return n.dossier_id!==id});save()},
@@ -902,6 +907,7 @@ if(!LIVE){
     async allNotes(){return chk(await SB.from('dossier_notes').select('*').order('created_at',{ascending:false}))},
     async dossier(id){return chk(await SB.from('dossiers').select('*').eq('id',id).maybeSingle())},
     async saveDossier(d){var row=Object.assign({},d,{updated_at:nowIso()});if(d.id){chk(await SB.from('dossiers').update(row).eq('id',d.id));return d}row.created_by=ME.id;delete row.id;var r=await SB.from('dossiers').insert(row).select().single();return chk(r)},
+    async prendrePlainte(pid){var r=await SB.rpc('prendre_plainte',{pid:pid});if(r.error)throw new Error(r.error.message);return r.data},
     async log(id,texte){var r=await SB.from('dossier_log').insert({dossier_id:id,author:ME.id,action:texte});if(r.error)console.warn(r.error.message)},
     async history(id){return chk(await SB.from('dossier_log').select('*').eq('dossier_id',id).order('created_at',{ascending:false}))},
     async deleteDossier(id){chk(await SB.from('dossiers').delete().eq('id',id))},
@@ -1211,7 +1217,13 @@ function stBadge(m){
 }
 function msgHtml(m){
   var me=m.sender===ME.id;
-  return '<div class="msg'+(me?' me':'')+'"><div class="mh"><b>'+esc(m.sender?who(m.sender):'📨 Plainte en ligne')+'</b><small>'+esc((MAP[m.sender]||{}).grade||'')+' · '+fdate(m.created_at)+'</small>'+(((me||isAdm())&&(me||isSuper()||!(MAP[m.sender]&&MAP[m.sender].role==='super')))?'<button class="mdel" type="button" data-del="'+qa(m.id)+'" title="Supprimer ce message" aria-label="Supprimer ce message"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v5M14 11v5"/></svg></button>':'')+'</div>'+stBadge(m)+'<div class="mb">'+linkify(esc(m.body||'').replace(/\n/g,'<br>'),null)+'</div>'+fileLinks(m.files,m)+'</div>';
+  return '<div class="msg'+(me?' me':'')+'"><div class="mh"><b>'+esc(m.sender?who(m.sender):'📨 Plainte en ligne')+'</b><small>'+esc((MAP[m.sender]||{}).grade||'')+' · '+fdate(m.created_at)+'</small>'+(((me||isAdm())&&(me||isSuper()||!(MAP[m.sender]&&MAP[m.sender].role==='super')))?'<button class="mdel" type="button" data-del="'+qa(m.id)+'" title="Supprimer ce message" aria-label="Supprimer ce message"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v5M14 11v5"/></svg></button>':'')+'</div>'+stBadge(m)+'<div class="mb">'+linkify(esc(m.body||'').replace(/\n/g,'<br>'),null)+'</div>'+plCard(m)+fileLinks(m.files,m)+'</div>';
+}
+function canTakePl(){return isAdm()||(ME.service==='Parquet'&&/^(Procureur|Substitut)/.test(ME.grade||''))}
+function plCard(m){
+  if(!m.plainte_id)return '';
+  if(m.plainte_prise_par)return '<div class="plcard done">✅ <b>Dossier pris par '+esc(who(m.plainte_prise_par))+'</b>'+((m.plainte_prise_par===ME.id||isAdm())&&m.plainte_dossier?' · <a href="#dossier-'+qa(m.plainte_dossier)+'">Ouvrir le dossier</a>':'')+'</div>';
+  return '<div class="plcard">'+(canTakePl()?'<button class="btn" type="button" data-plp="'+qa(m.plainte_id)+'">📂 Prendre le dossier</button><small> Il sera à toi : tu en seras seul en charge, et il apparaîtra alors dans tes dossiers.</small>':'<small>En attente : un procureur ou un substitut doit prendre ce dossier.</small>')+'</div>';
 }
 async function refreshThread(force){
   if(!CUR_CH)return;
@@ -1223,6 +1235,10 @@ async function refreshThread(force){
   LASTSIG=sig;FREG=[];
   th.innerHTML=ms.length?ms.map(msgHtml).join(''):'<p class="empty">Aucun message. Écrivez le premier.</p>';
   bindFiles(th);
+  th.querySelectorAll('[data-plp]').forEach(function(b){b.addEventListener('click',async function(){
+    if(!await ask('Prendre ce dossier ?\n\nIl ouvrira un dossier à ton nom : tu seras seul en charge.'))return;
+    try{var did=await API.prendrePlainte(b.getAttribute('data-plp'));flash('Dossier pris : il apparaît maintenant dans tes dossiers.');location.hash='dossier-'+did}catch(e){flash(e.message,true);if(typeof refreshThread==='function')refreshThread(true)}
+  })});
   th.querySelectorAll('[data-del]').forEach(function(b){b.addEventListener('click',async function(){
     if(!await ask('Supprimer ce message définitivement ?'))return;
     try{await API.deleteMessage(b.getAttribute('data-del'));flash('Message supprimé.');await refreshThread(true)}catch(err){flash(err.message,true)}
@@ -1408,6 +1424,10 @@ async function viewDossier(id){
     '<h3 style="font-size:16px;margin:14px 0 0">Intervenants (voient le dossier et peuvent y travailler) — '+as.length+' / 5 personnes au total</h3>'+
     '<div class="mf" style="margin-top:8px">'+(oth.map(function(i){return '<span class="pc"><span class="fchip">👤 '+esc(whoLong(i))+'</span><button class="fchip edt" type="button" data-mkresp="'+qa(i)+'" title="Mettre cette personne en charge du dossier">★ Mettre en charge</button><button class="pdel" type="button" data-unasg="'+qa(i)+'" title="Retirer du dossier" aria-label="Retirer '+qa(who(i))+' du dossier">×</button></span>'}).join('')||'<small>Aucun intervenant.</small>')+'</div>'+
     '<div class="inl"><select id="as_sel" aria-label="Ajouter un intervenant"'+(as.length>=5?' disabled':'')+'>'+(as.length>=5?'<option value="">5 personnes au maximum</option>':'<option value="">Ajouter un intervenant…</option>'+restM.map(function(m){return '<option value="'+qa(m.id)+'">'+esc(m.nom+' · '+m.grade)+'</option>'}).join(''))+'</select></div></section>';
+  var plH='';
+  if(/^PL-/.test(d.numero||'')){var plSt=/^(Classé|Jugé)$/.test(d.statut)?'Classée':'En cours';
+    plH='<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Suivi par le plaignant (site public)</h2><p class="sub small">Le plaignant voit l’état de sa plainte avec son numéro <b>'+esc(d.numero)+'</b> : <b>'+plSt+'</b>'+'. Le message ci-dessous s’affiche aussi sur le site public.</p>'+
+    (isROD()?'<p class="res-txt">'+esc(d.message_plaignant||'Aucun message.')+'</p>':'<textarea id="pl_msg" rows="3" maxlength="600" placeholder="Ex. : Présentez-vous au Parquet avec votre pièce d’identité. (le plaignant lit ce message)" aria-label="Message au plaignant">'+esc(d.message_plaignant||'')+'</textarea><div class="inl"><button class="btn" type="button" id="pl_msgsave">Enregistrer le message</button>'+(d.message_plaignant_at?'<small> Dernière mise à jour : '+fdate(d.message_plaignant_at)+'</small>':'')+'</div>')+'</section>'}
   /* dossiers liés */
   var lies=(d.lies||[]).map(function(i){return all.filter(function(x){return x.id===i})[0]}).filter(Boolean);
   var canLk=all.filter(function(x){return x.id!==d.id&&(d.lies||[]).indexOf(x.id)<0});
@@ -1431,7 +1451,7 @@ async function viewDossier(id){
     '</ol></div></section>';
   return '<div class="wrap page">'+head+'<div class="ph"><div><div class="dnum">'+(isStar(d)?'⭐ ':'')+esc(d.numero)+'</div><h1>'+esc(d.titre)+'</h1>'+(indiv(d)?'<div class="indsub"><a href="'+ficheHref(d)+'" title="Ouvrir la fiche d’individu">👤 '+esc(indiv(d))+'</a></div>':'')+'</div><div class="dact"><select id="dst" aria-label="État du dossier">'+opts(STATUTS,d.statut)+'</select>'+(function(){var cand=approved().filter(function(m){return asg(d).indexOf(m.id)<0});return cand.length?'<select id="dtr" aria-label="Confier le dossier à"><option value="">Confier à…</option>'+cand.map(function(m){return '<option value="'+qa(m.id)+'">'+esc(m.nom+' · '+m.grade)+'</option>'}).join('')+'</select>':''})()+'<button class="btn ghost" id="dstar" type="button" aria-pressed="'+(isStar(d)?'true':'false')+'">'+(isStar(d)?'★ Prioritaire':'☆ Prioritaire')+'</button><button class="btn ghost" id="ded" type="button">Modifier</button><button class="btn ghost" id="dpdf" type="button">Exporter en PDF</button><button class="btn ghost" id="dhtml" type="button">Télécharger</button>'+(isAdm()?'<button class="btn danger" id="ddel" type="button">Mettre à la corbeille</button>':'')+'</div></div>'+
   (d.statut==='Classé'?'<div class="banner"><b>Dossier classé</b>'+(d.classe_at?' le '+fdate(d.classe_at):'')+(d.motif_classement?' — motif : '+esc(d.motif_classement):'')+'. Pour le rouvrir, changez son état.</div>':'')+
-  info+autresH+asgH+liesH+EX.top+'<section class="block" style="padding-top:20px"><h2 style="font-size:22px">Résumé des faits</h2><p class="res-txt">'+(esc(d.resume||'Aucun résumé.').replace(/\n/g,'<br>'))+'</p></section>'+
+  info+autresH+asgH+plH+liesH+EX.top+'<section class="block" style="padding-top:20px"><h2 style="font-size:22px">Résumé des faits</h2><p class="res-txt">'+(esc(d.resume||'Aucun résumé.').replace(/\n/g,'<br>'))+'</p></section>'+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Pièces ('+pieces.length+')</h2>'+(pieces.length?'<div class="mf" style="margin-top:8px">'+pieces.map(function(p){FREG.push(p.f);var i=FREG.length-1;var can=p.by===ME.id||isAdm()||asg(d).indexOf(ME.id)>=0;var x=can?'<button class="pdel" type="button" data-pn="'+qa(p.nid)+'" data-pi="'+p.idx+'" data-pname="'+qa(p.f.name)+'" title="Retirer cette pièce" aria-label="Retirer la pièce '+qa(p.f.name)+'">×</button>':'';return '<span class="pc">'+(p.f.url&&!p.f.data?'<a class="fchip" href="'+qa(p.f.url)+'" target="_blank" rel="noopener">📄 '+esc(p.f.name)+'</a>':'<a class="fchip" href="#" data-fi="'+i+'">📎 '+esc(p.f.name)+'</a>')+(/\.docx\)?$/i.test(p.f.name)?'<button class="fchip edt" type="button" data-fe="'+i+'">✍ Compléter / signer</button>':'')+x+((p.f.visas&&p.f.visas.length)?'<small class="visa">✓ visé par '+p.f.visas.map(function(s){return esc(who(s.by))+' le '+fdate(s.at)}).join(' ; ')+'</small>':'')+((MAGIS.indexOf(ME.grade)>=0&&!(p.f.visas||[]).some(function(s){return s.by===ME.id}))?'<button class="visabtn" type="button" data-vn="'+qa(p.nid)+'" data-vi="'+p.idx+'" title="Apposer mon visa">Viser</button>':'')+'</span>'}).join('')+'</div>':'<p class="sub">Aucune pièce jointe. Ajoutez-en dans une note de la chronologie.</p>')+'</section>'+tl+EX.bottom+'</div>';
 }
 function bindDossier(id){
@@ -1485,6 +1505,10 @@ function bindDossier(id){
   var asl=$('#as_sel');if(asl)asl.addEventListener('change',async function(){
     if(!asl.value)return;
     try{var d=await API.dossier(id),l=asg(d).slice();if(l.length>=5||l.indexOf(asl.value)>=0)return;l.push(asl.value);await API.upd('dossiers',id,{assignes:l,assigne_a:resp(d)||l[0]});await API.log(id,'Intervenant ajouté : '+whoLong(asl.value));flash('Intervenant ajouté : il voit maintenant le dossier.');route(true)}catch(e){flash(e.message,true)}
+  });
+  var plb=$('#pl_msgsave');if(plb)plb.addEventListener('click',async function(){
+    var t=($('#pl_msg').value||'').trim();
+    try{await API.upd('dossiers',id,{message_plaignant:t,message_plaignant_at:new Date().toISOString()});await API.log(id,t?'Message au plaignant mis à jour':'Message au plaignant retiré');flash(t?'Message enregistré : le plaignant le verra sur le site public.':'Message retiré.');route(true)}catch(e){flash(e.message,true)}
   });
   document.querySelectorAll('[data-mkresp]').forEach(function(b){b.addEventListener('click',async function(){
     var u=b.getAttribute('data-mkresp');
