@@ -766,6 +766,8 @@ function nowIso(){return new Date().toISOString()}
 function dmChannel(a,b){return 'dm:'+[a,b].sort().join('_')}
 var ME=null; /* profil connecté */
 /* demande de la Police : un document Word envoyé par un policier dans un salon Police est « à traiter » jusqu'à sa signature */
+function slugId(v){return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'.').replace(/[^a-z0-9._-]/g,'')}
+function idToEmail(v){v=String(v||'').trim();if(v.indexOf('@')>=0)return v.toLowerCase();return slugId(v)+'@'+((window.INTERNE_CONFIG||{}).ID_DOMAIN||'id.bruxelleslife.net')}
 function demandeStatut(ch,files){return (isDemCh(ch)&&ME&&(files||[]).some(function(f){return /\.docx\)?$/i.test(f.name)}))?'a_traiter':null}
 var API;
 if(!LIVE){
@@ -803,6 +805,7 @@ if(!LIVE){
     async session(){var id=sessionStorage.getItem('demo_user');var p=ST.users.filter(function(x){return x.id===id})[0];return p||null},
     demoUsers(){return ST.users.filter(function(x){return x.approved})},
     async signIn(email){var p=ST.users.filter(function(x){return x.id===email||x.email===email})[0];if(!p)throw new Error('Compte introuvable');sessionStorage.setItem('demo_user',p.id);return p},
+    async resetPassword(uid,pw){throw new Error('Non disponible en démonstration.')},
     async signUp(email,pw,nom){var p={id:uid(),email:email,nom:nom,grade:'Autre',service:'Autre',fonction:'',role:'membre',approved:false,created_at:nowIso()};ST.users.push(p);save();sessionStorage.setItem('demo_user',p.id);return p},
     async signOut(){sessionStorage.removeItem('demo_user')},
     async members(){return ST.users.slice()},
@@ -854,8 +857,12 @@ if(!LIVE){
   API={
     live:true,
     async session(){var s=await SB.auth.getSession();if(!s.data.session)return null;var r=await SB.from('profiles').select('*').eq('id',s.data.session.user.id).maybeSingle();return chk(r)},
-    async signIn(email,pw){var r=await SB.auth.signInWithPassword({email:email,password:pw});if(r.error)throw new Error(r.error.message==='Invalid login credentials'?'E-mail ou mot de passe incorrect.':r.error.message);return API.session()},
-    async signUp(email,pw,nom){var r=await SB.auth.signUp({email:email,password:pw,options:{data:{nom:nom}}});if(r.error)throw new Error(r.error.message);if(!r.data.session)return {pendingConfirm:true};return API.session()},
+    async signIn(idf,pw){var r=await SB.auth.signInWithPassword({email:idToEmail(idf),password:pw});if(r.error)throw new Error(r.error.message==='Invalid login credentials'?'Identifiant ou mot de passe incorrect.':r.error.message);return API.session()},
+    async signUp(idf,pw,nom){var sl=slugId(idf);if(String(idf).indexOf('@')>=0)throw new Error('L’identifiant ne peut pas contenir de @ : choisissez un pseudo (lettres, chiffres, point, tiret).');if(sl.length<3||sl.length>30)throw new Error('L’identifiant doit faire entre 3 et 30 caractères (lettres, chiffres, point, tiret).');
+      var r=await SB.auth.signUp({email:idToEmail(sl),password:pw,options:{data:{nom:nom,identifiant:sl}}});
+      if(r.error){var mg=r.error.message||'';throw new Error(/already registered|already been registered/i.test(mg)?'Cet identifiant est déjà pris.':(/invalid/i.test(mg)&&/email/i.test(mg)?'Inscription refusée par la base (adresse interne non acceptée). Prévenez un administrateur : voir LISEZMOI, section « Identifiant ».':mg))}
+      if(!r.data.session)return {pendingConfirm:true};return API.session()},
+    async resetPassword(uid,pw){var r=await SB.rpc('admin_reset_password',{uid:uid,pw:pw});if(r.error)throw new Error(r.error.message)},
     async signOut(){await SB.auth.signOut()},
     async members(){return chk(await SB.from('profiles').select('*').order('nom'))},
     async deleteMember(id){var r=await SB.rpc('delete_member',{target:id});if(r.error)throw new Error(r.error.message)},
@@ -1039,11 +1046,11 @@ function viewLogin(mode){
     '<p class="small"><a href="#" id="lreset">Réinitialiser la démonstration</a></p>';
   }else{
     var reg=mode==='signup';
-    h+='<form id="lf" class="form" data-mode="'+(reg?'signup':'login')+'">'+(reg?'<label>Nom et prénom<input id="ln" required autocomplete="name"></label>':'')+
-    '<label>Adresse e-mail<input id="le" type="email" required autocomplete="email"></label><label>Mot de passe<input id="lp" type="password" required minlength="8" autocomplete="'+(reg?'new-password':'current-password')+'"></label>'+
+    h+='<form id="lf" class="form" data-mode="'+(reg?'signup':'login')+'">'+(reg?'<div class="two"><label>Prénom<input id="lpre" required autocomplete="given-name"></label><label>Nom<input id="lnom" required autocomplete="family-name"></label></div>':'')+
+    '<label>Identifiant<input id="le" type="text" required autocomplete="username" autocapitalize="none" spellcheck="false"'+(reg?' minlength="3" maxlength="30" placeholder="ex. jean.dupont (lettres, chiffres, point, tiret)"':'')+'></label><label>Mot de passe<input id="lp" type="password" required minlength="8" autocomplete="'+(reg?'new-password':'current-password')+'"></label>'+
     '<button class="btn" type="submit">'+(reg?'Demander un compte':'Se connecter')+'</button></form>'+
     '<p class="small">'+(reg?'<a href="#" id="lsw">J’ai déjà un compte</a>':'<a href="#" id="lsw">Demander un compte</a>')+'</p>'+
-    (reg?'<p class="small">Votre compte sera actif après validation par un administrateur.</p>':'');
+    (reg?'<p class="small">Choisissez un identifiant de votre invention (pas d’adresse e-mail) et notez-le avec votre mot de passe : il n’y a pas de récupération automatique, un administrateur peut vous donner un nouveau mot de passe. Votre compte sera actif après validation par un administrateur.</p>':'<p class="small">Anciens comptes : vous pouvez aussi saisir votre adresse e-mail comme identifiant.</p>');
   }
   h+='<div class="err" id="lerr" role="alert"></div></div></div>';
   return h;
@@ -1058,7 +1065,7 @@ function bindLogin(mode){
     try{
       var p;
       if(!LIVE)p=await API.signIn($('#lu').value);
-      else if(f.getAttribute('data-mode')==='signup'){p=await API.signUp($('#le').value.trim(),$('#lp').value,$('#ln').value.trim());if(p&&p.pendingConfirm){$('#main').innerHTML='<div class="loginwrap"><div class="logincard"><h1>Vérifiez votre e-mail</h1><p>Un message de confirmation vient de vous être envoyé. Cliquez sur le lien, puis revenez vous connecter. Votre compte sera ensuite activé par un administrateur.</p></div></div>';return}}
+      else if(f.getAttribute('data-mode')==='signup'){p=await API.signUp($('#le').value.trim(),$('#lp').value,($('#lpre').value.trim()+' '+$('#lnom').value.trim()).trim());if(p&&p.pendingConfirm){$('#main').innerHTML='<div class="loginwrap"><div class="logincard"><h1>Compte créé</h1><p>Votre compte est créé. Il doit encore être activé par un administrateur ; si la connexion est refusée, prévenez-le (la confirmation par e-mail doit être désactivée dans Supabase : voir le LISEZMOI).</p></div></div>';return}}
       else p=await API.signIn($('#le').value.trim(),$('#lp').value);
       await start(p);
     }catch(ex){err(ex.message);btn.disabled=false}
@@ -1617,11 +1624,11 @@ async function viewAdmin(){
   return '<div class="wrap page">'+pageHead('Administration','Validez les nouveaux comptes et attribuez les grades. '+(isSuper()?'Vous êtes super-administrateur : vous seul changez les rôles et supprimez des comptes. ':'Les rôles et les suppressions de comptes sont réservés au super-administrateur. ')+(pend?'<b>'+pend+' compte'+(pend>1?'s':'')+' en attente.</b>':'Aucun compte en attente.'))+
   '<div class="mlist">'+ms.map(function(m){
     var locked=m.role==='super'&&m.id!==ME.id,dis=locked?' disabled':'';
-    return '<div class="mrow'+(m.approved?'':' pend-row')+'" data-id="'+qa(m.id)+'"><div class="mtop"><input data-f="nom" class="nomin"'+dis+' value="'+qa(m.nom||'')+'" aria-label="Nom RP" required><span class="mem" title="Adresse masquée par sécurité">'+esc(maskEmail(m.email))+'</span>'+(m.role==='super'?'<span class="badge-super">Super-admin</span>':'')+(m.approved?'':'<span class="badge">En attente</span>')+'</div>'+
+    return '<div class="mrow'+(m.approved?'':' pend-row')+'" data-id="'+qa(m.id)+'"><div class="mtop"><input data-f="nom" class="nomin"'+dis+' value="'+qa(m.nom||'')+'" aria-label="Nom RP" required><span class="mem" title="Identifiant de connexion">'+(m.identifiant?'🔑 '+esc(m.identifiant):esc(maskEmail(m.email)))+'</span>'+(m.role==='super'?'<span class="badge-super">Super-admin</span>':'')+(m.approved?'':'<span class="badge">En attente</span>')+'</div>'+
     '<div class="mgrid"><label>Grade<select data-f="grade"'+dis+'>'+opts(GRADES,m.grade)+'</select></label><label>Service<select data-f="service"'+dis+'>'+opts(SERVICES,m.service)+'</select></label><label>Fonction<input data-f="fonction"'+dis+' value="'+qa(m.fonction||'')+'" placeholder="ex. Permanence"></label>'+
     (m.role==='super'?'':'<label>Rôle<select data-f="role"'+(isSuper()?'':' disabled title="Seul le super-administrateur change les rôles"')+'>'+opts(['membre','admin'],m.role)+'</select></label>')+
     '<label class="mact"><input type="checkbox" data-f="public_annuaire"'+(m.public_annuaire?' checked':'')+dis+'> Afficher sur le site public</label><label class="mact"><input type="checkbox" data-f="approved"'+(m.approved?' checked':'')+((m.id===ME.id||m.role==='super')?' disabled':'')+' aria-label="Compte actif"> Compte actif</label></div>'+
-    '<div class="mbtn">'+(locked?'<small>🔒 Compte protégé</small>':'<button class="btn small" data-save="'+qa(m.id)+'" type="button">Enregistrer</button>'+((isSuper()&&m.id!==ME.id)?'<button class="btn small danger" data-rmm="'+qa(m.id)+'" type="button">Supprimer</button>':''))+'</div></div>'}).join('')+'</div>'+
+    '<div class="mbtn">'+(locked?'<small>🔒 Compte protégé</small>':'<button class="btn small" data-save="'+qa(m.id)+'" type="button">Enregistrer</button>'+((isAdm()&&m.id!==ME.id&&m.role!=='super')?'<button class="btn small" data-pwr="'+qa(m.id)+'" type="button">Nouveau mot de passe</button>':'')+((isSuper()&&m.id!==ME.id)?'<button class="btn small danger" data-rmm="'+qa(m.id)+'" type="button">Supprimer</button>':''))+'</div></div>'}).join('')+'</div>'+
   (await adminExtras())+(LIVE?'':'<p class="small" style="margin-top:14px"><a href="#" id="areset">Réinitialiser la démonstration</a></p>')+'</div>';
 }
 function bindAdmin(){
@@ -1633,6 +1640,12 @@ function bindAdmin(){
     if(f.role===undefined)delete f.role;
     if('nom' in f){f.nom=f.nom.trim();if(!f.nom){flash('Le nom ne peut pas être vide.',true);return}}
     try{await API.updateMember(id,f);flash('Membre mis à jour.');route(true)}catch(e){flash(e.message,true)}
+  })});
+  document.querySelectorAll('[data-pwr]').forEach(function(b){b.addEventListener('click',async function(){
+    var id=b.getAttribute('data-pwr'),m=MAP[id]||{};
+    var pw=await dlgOpen({title:'Nouveau mot de passe',body:'Pour '+(m.nom||'ce membre')+(m.identifiant?' (identifiant : '+m.identifiant+')':'')+'.\n\nChoisissez un mot de passe d’au moins 8 caractères et transmettez-le à la personne. Elle pourra continuer à se connecter avec.',input:true,ok:'Enregistrer'});
+    if(!pw)return;pw=String(pw).trim();if(pw.length<8){flash('8 caractères au minimum.',true);return}
+    try{await API.resetPassword(id,pw);flash('Mot de passe modifié pour '+(m.nom||'ce membre')+'.')}catch(e){flash(e.message,true)}
   })});
   document.querySelectorAll('[data-rmm]').forEach(function(b){b.addEventListener('click',async function(){
     var id=b.getAttribute('data-rmm'),m=MAP[id]||{};
