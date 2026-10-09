@@ -892,11 +892,14 @@ function ficheHref(d){return '#individu-'+encodeURIComponent(indivKey(d))}
 function maskEmail(e){e=String(e||'');var i=e.lastIndexOf('@');if(i<1)return '••••••';var l=e.slice(0,i),d=e.slice(i+1),p=d.lastIndexOf('.');var dn=p>0?d.slice(0,p):d,tl=p>0?d.slice(p):'';return l.slice(0,2)+'****@'+dn.slice(0,1)+'***'+tl}
 function approved(){return MEMBERS.filter(function(m){return m.approved})}
 var FREG=[];
+/* « Ranger dans un dossier » : seulement dans les salons Police, pour le service concerné (Parquet, Instruction, Siège) et les administrateurs */
+var RANGER_SVC={'pol-parquet':['Parquet'],'pol-instruction':['Instruction'],'pol-tribunal':['Siège']};
+function RANGER_OK(){return !!ME&&/^#messages/.test(location.hash)&&typeof CUR_CH!=='undefined'&&!!RANGER_SVC[CUR_CH]&&(isAdm()||RANGER_SVC[CUR_CH].indexOf(ME.service)>=0)}
 function fileLinks(fs){
   if(!fs||!fs.length)return '';
   return '<div class="mf">'+fs.map(function(f){
     var isD=/\.docx\)?$/i.test(f.name);
-    var rg=(/^#messages/.test(location.hash)&&!isPolice())?'<button class="fchip edt" type="button" data-fr="__I__">📁 Ranger dans un dossier</button>':'';
+    var rg=(RANGER_OK())?'<button class="fchip edt" type="button" data-fr="__I__">📁 Ranger dans un dossier</button>':'';
     var sg=(f.signs&&f.signs.length)?'<span class="signok">'+f.signs.map(function(s){return '<span>✓ '+esc(s)+'</span>'}).join('')+'</span>':'';
     if(f.url&&!f.data){FREG.push(f);return '<a class="fchip" href="'+qa(f.url)+'" target="_blank" rel="noopener">📄 '+esc(f.name)+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+rg.replace('__I__',FREG.length-1)+sg}
     FREG.push(f);return '<a class="fchip" href="#" data-fi="'+(FREG.length-1)+'">📎 '+esc(f.name)+(f.size?' <small>'+fsize(f.size)+'</small>':'')+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+rg.replace('__I__',FREG.length-1)+sg;
