@@ -1897,7 +1897,7 @@ async function homeExtras(){
   var alertes=wk.filter(function(e){return e.type==='Fin de peine'&&new Date(e.date_heure).getTime()<=now+48*36e5});
   var h='';
   h+='<section class="block"><h2>Cette semaine</h2>'+(alertes.length?'<div class="alert">⚠ '+alertes.length+' libération'+(alertes.length>1?'s':'')+' à l’échéance dans les 48 heures ou en retard. '+esc(PEINE_MSG)+'</div>':'')+
-    (wk.length?'<div class="grid g-act">'+wk.slice(0,8).map(function(e){var d=dm[e.dossier_id],late=new Date(e.date_heure).getTime()<now;return '<a class="act'+(late?' late':'')+'" href="#dossier-'+qa(d.id)+'"><b>'+esc(e.type)+' · '+esc(d.numero)+'</b><span>'+esc(d.titre)+(e.note?' — '+esc(e.note):'')+'</span><em>'+fday(e.date_heure)+' '+ftime(e.date_heure)+' · '+reste(e.date_heure)+'</em></a>'}).join('')+'</div>'+(wk.length>8?'<p style="margin-top:10px"><a href="#agenda">Voir tout l’agenda →</a></p>':''):'<p class="sub">Rien à l’agenda dans les 7 prochains jours. <a href="#agenda">Ouvrir l’agenda</a></p>')+'</section>';
+    (wk.length?'<div class="grid g-act">'+wk.slice(0,24).map(function(e){var d=dm[e.dossier_id],late=new Date(e.date_heure).getTime()<now;return '<a class="act'+(late?' late':'')+'" href="#dossier-'+qa(d.id)+'"><b>'+esc(e.type)+' · '+esc(d.numero)+'</b><span>'+esc(d.titre)+(e.note?' — '+esc(e.note):'')+'</span><em>'+fday(e.date_heure)+' '+ftime(e.date_heure)+' · '+reste(e.date_heure)+'</em></a>'}).join('')+'</div>':'<p class="sub">Rien à l’agenda dans les 7 prochains jours.</p>')+'</section>';
   return h;
 }
 /* ---------- Qui est de garde (visible de tous, modifiable par le service concerné et les administrateurs) ---------- */
@@ -2382,7 +2382,7 @@ function jfromDossier(j,d){j.numero=d.numero||'';j.infraction=d.titre||'';j.indi
 /* ===================== NAVIGATION ET DÉMARRAGE ===================== */
 function navHtml(cur){
   var sec=cur.split('-')[0];
-  var items=[['accueil','Accueil'],['messages','Messagerie'],['dossiers','Dossiers'],['jugements','Jurisprudence'],['agenda','Agenda'],['annuaire','Annuaire'],['codes','Codes'],['guides','Guides'],['documents','Documents']];
+  var items=[['accueil','Accueil'],['messages','Messagerie'],['dossiers','Dossiers'],['jugements','Jurisprudence'],['annuaire','Annuaire'],['codes','Codes'],['guides','Guides'],['documents','Documents']];
   if(isPoliceAgent())items=[['accueil','Accueil'],['messages','Messagerie'],['annuaire','Annuaire'],['codes','Codes'],['guides','Guides'],['documents','Documents']];
   else if(isOPJ())items=items.filter(function(n){return n[0]!=='agenda'});
   if(isAdm())items.push(['admin','Administration']);
@@ -2428,7 +2428,7 @@ async function route(force){
     else if((m=h.match(/^individu-(.+)$/))){var ik;try{ik=decodeURIComponent(m[1])}catch(e0){ik=m[1]}html=await viewIndividu(ik);after=function(){bindIndividu(ik)}}
     else if(h==='jugements'){html=await viewJugements();after=bindJugements}
     else if((m=h.match(/^(nouveau|modifier)-jugement(?:-(.+))?$/))){var jf=await viewJugementForm(m[1]==='modifier'?m[2]:null,m[1]==='nouveau'?m[2]:null);html=jf.html;after=jf.after}
-    else if(h==='agenda'){html=await viewAgenda();after=bindAgenda}
+    else if(h==='agenda'){location.hash='accueil';return}
     else if(h==='admin'){html=await viewAdmin();after=bindAdmin}
     else if((m=h.match(/^c([1-8])(?:-(.+))?$/))){html=viewCode(+m[1]);target=m[2]?h:null}
     else if((m=h.match(/^g-(citoyen|chef|avocat|juge|instruction|procureur)(?:-(\d+))?$/))){html=viewGuide(m[1]);target=m[2]?h:null}
