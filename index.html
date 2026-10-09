@@ -430,6 +430,7 @@ dl.pen.big{max-width:820px;margin-top:18px}
 .msgside .side-empty a{display:inline;padding:0;background:none;border:0;text-decoration:underline}
 .ro #dst,.ro #ded,.ro #ddel,.ro #dtr,.ro #dstar,.ro #nf,.ro #ef,.ro #lf,.ro .inl,.ro .pdel,.ro .visabtn,.ro [data-erm],.ro [data-edone],.ro [data-restore],.ro [data-purge]{display:none!important}
 .garde .act{display:flex;flex-direction:column;gap:4px}.garde .gtel{font-weight:600}.garde .btn{align-self:flex-start;margin-top:6px}
+.signok{display:flex;flex-direction:column;flex-basis:100%;gap:2px;font-size:12.5px;font-weight:600;color:#1f6b3a}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -494,7 +495,7 @@ procureur:{n:'Guide du Procureur du Roi',s:'Procureur du Roi',d:'Parquet, enquê
 var GKEYS=['avocat','juge','instruction','procureur','citoyen','chef'];
 /* Salons : [identifiant, nom, services autorisés (null = tous)]. Un administrateur voit tous les salons.
    À modifier ici si besoin ; la même règle est dans setup.sql (fonction can_channel). */
-var CHANNELS=[['general','Justice · tous',null],['parquet','Parquet',['Parquet']],['siege','Siège (juges)',['Siège','Greffe']],['instruction','Instruction',['Instruction','Greffe']],['barreau','Barreau (avocats)',['Barreau']],['pol-parquet','Police ↔ Parquet',['Police','Parquet']],['pol-instruction','Police ↔ Instruction',['Police','Instruction']],['pol-tribunal','Police ↔ Tribunal',['Police','Siège','Greffe']]];
+var CHANNELS=[['general','Justice · tous',null],['pol-parquet','Police ↔ Parquet',['Police','Parquet']],['pol-instruction','Police ↔ Instruction',['Police','Instruction']],['pol-tribunal','Police ↔ Tribunal',['Police','Siège','Greffe']],['parquet','Parquet',['Parquet']],['siege','Siège (juges)',['Siège','Greffe']],['instruction','Instruction',['Instruction','Greffe']],['barreau','Barreau (avocats)',['Barreau']]];
 function isAdm(){return !!ME&&(ME.role==='admin'||ME.role==='super')}
 /* Police : « Agent de police » = annuaire, messagerie (salons Police) et documents ; « OPJ » = en plus, lecture seule des dossiers dont il est chargé */
 function isPolice(){return !!ME&&ME.service==='Police'&&!isAdm()}
@@ -894,8 +895,9 @@ function fileLinks(fs){
   if(!fs||!fs.length)return '';
   return '<div class="mf">'+fs.map(function(f){
     var isD=/\.docx\)?$/i.test(f.name);
-    if(f.url&&!f.data){FREG.push(f);return '<a class="fchip" href="'+qa(f.url)+'" target="_blank" rel="noopener">📄 '+esc(f.name)+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')}
-    FREG.push(f);return '<a class="fchip" href="#" data-fi="'+(FREG.length-1)+'">📎 '+esc(f.name)+(f.size?' <small>'+fsize(f.size)+'</small>':'')+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'');
+    var sg=(f.signs&&f.signs.length)?'<span class="signok">'+f.signs.map(function(s){return '<span>✓ '+esc(s)+'</span>'}).join('')+'</span>':'';
+    if(f.url&&!f.data){FREG.push(f);return '<a class="fchip" href="'+qa(f.url)+'" target="_blank" rel="noopener">📄 '+esc(f.name)+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+sg}
+    FREG.push(f);return '<a class="fchip" href="#" data-fi="'+(FREG.length-1)+'">📎 '+esc(f.name)+(f.size?' <small>'+fsize(f.size)+'</small>':'')+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+sg;
   }).join('')+'</div>';
 }
 var DOCDATA=null;
@@ -1119,14 +1121,14 @@ async function viewMessages(sub){
   var dms=approved().filter(function(m){return m.id!==ME.id&&dset[m.id]});
   var chLink=function(c){return '<a href="#messages-'+c[0]+'" data-ch="'+c[0]+'"'+(c[0]===ch?' aria-current="true"':'')+'># '+esc(c[1])+'</a>'};
   var jch=CHANNELS.filter(function(c){return !isPolChan(c[0])&&canChannel(c[0])}),pch=CHANNELS.filter(function(c){return isPolChan(c[0])&&canChannel(c[0])});
-  var side=(jch.length?'<div class="side-h">Salons</div>'+jch.map(chLink).join(''):'')+(pch.length?'<div class="side-h">Police · demandes</div>'+pch.map(chLink).join(''):'')+
+  var side='<div class="side-h">Salons</div>'+jch.concat(pch).sort(function(x,y){return CHANNELS.indexOf(x)-CHANNELS.indexOf(y)}).map(chLink).join('')+
    '<div class="side-h">Messages privés</div>'+(dms.length?dms:[]).map(function(m){var c=dmChannel(ME.id,m.id);return '<a href="#messages-dm-'+qa(m.id)+'" data-ch="'+qa(c)+'"'+(c===ch?' aria-current="true"':'')+'><span>'+esc(m.nom)+'</span><small>'+esc(m.grade||'')+'</small></a>'}).join('')+(dms.length?'':'<p class="side-empty">Aucune conversation. Cliquez sur « Écrire » dans l’<a href="#annuaire">Annuaire</a> pour en démarrer une.</p>');
   var dcats={},dorder=[];DOCS.forEach(function(d,i){if(!dcats[d.cat]){dcats[d.cat]=[];dorder.push(d.cat)}dcats[d.cat].push([i,d])});
   var pol=isPolChan(ch);if(isPolice())dorder=dorder.filter(function(c){return c==='Police'});
   var docsSel='<select id="dsel" aria-label="Joindre un document type"><option value="">'+(pol?'Faire une demande / joindre un modèle…':'Joindre un document type…')+'</option>'+dorder.map(function(c){return '<optgroup label="'+qa(c)+'">'+dcats[c].map(function(p){return '<option value="'+p[0]+'">'+esc(p[1].ref+' — '+p[1].title)+'</option>'}).join('')+'</optgroup>'}).join('')+'</select>';
   var h='<div class="wrap page wide"><div class="msgwrap"><aside class="msgside">'+side+'</aside><section class="msgmain"><header class="msghead"><b>'+esc(chanTitle(ch))+'</b></header>'+(pol?'<p class="polhint">'+(isPolice()?'Pour une demande : choisissez un modèle dans la liste « Faire une demande », complétez-le, puis envoyez-le. Le magistrat l’ouvrira, le signera et vous le renverra ici.':'Les demandes de la Police arrivent ici. Ouvrez le document, cliquez sur « ✍ Compléter / signer », puis renvoyez-le dans ce salon.')+'</p>':'')+'<div id="thread" class="thread" aria-live="polite"><p class="empty">Chargement…</p></div>'+
   '<form id="comp" class="comp"><div id="pend" class="pend">'+pendHtml()+'</div><textarea id="mt" rows="2" placeholder="Votre message (Entrée pour envoyer, Maj+Entrée pour aller à la ligne)" aria-label="Votre message"></textarea>'+
-  '<div class="comprow"><label class="btn ghost small">📎 Joindre un fichier<input id="mfile" type="file" multiple hidden></label>'+docsSel+'<button class="btn" type="submit">Envoyer</button></div></form></section></div></div>';
+  '<div class="comprow"><label class="btn ghost small"'+(isPolice()?' style="display:none"':'')+'>📎 Joindre un fichier<input id="mfile" type="file" multiple hidden></label>'+docsSel+'<button class="btn" type="submit">Envoyer</button></div></form></section></div></div>';
   return h;
 }
 function bindMessages(){
@@ -1878,18 +1880,27 @@ async function openEditor(blob,outName,title){
   /* signature */
   var sigTxt='Signé par '+ME.nom+(ME.grade?', '+ME.grade:'')+', le '+dd+' à '+hm;
   var added=[];
+  var slotOf=function(p){return /^\s*signature/i.test(p.textContent)&&p.closest('td')};
+  var isSigned=function(p){var pv=p.previousElementSibling;return !!(pv&&pv.tagName==='P'&&/^Signé par /.test(pv.textContent.trim()))};
+  var headOf=function(p){var td=p.closest('td'),tr=td&&td.closest('tr');if(!tr)return '';var ix=Array.prototype.indexOf.call(tr.children,td),pr=tr.previousElementSibling;return pr&&pr.children[ix]?pr.children[ix].textContent:''};
+  var roleRx=ME.service==='Police'?/OPJ|APJ|agent|police|demandeur|rédacteur/i:/Avocat|Bâtonnier/.test(ME.grade||'')?/avocat|bâtonnier|défense/i:/juge|magistrat|procureur|parquet|substitut|greffier|ministère/i;
   m.querySelector('[data-sig]').addEventListener('click',function(){
-    var lab=null;hps.forEach(function(p){if(/signature/i.test(p.textContent))lab=p});
+    var slots=hps.filter(slotOf),free=slots.filter(function(p){return !isSigned(p)}),lab=null;
+    if(slots.length){
+      if(!free.length){flash('Toutes les signatures de ce document sont déjà apposées.');return}
+      lab=free.filter(function(p){return roleRx.test(headOf(p))})[0]||free[0];
+    }else{
+      var al=hps.filter(function(p){return /signature/i.test(p.textContent)});lab=al[al.length-1]||null;
+    }
     var tgt=null;
     if(lab){
-      var prev=lab.previousElementSibling;
-      if(prev&&prev.tagName==='P'&&prev.textContent.trim()===''){tgt=prev;setTxt(prev,sigTxt);if(!prev.firstChild)prev.appendChild(document.createTextNode(sigTxt))}
-      else{
-        var np=lab.cloneNode(false);np.innerHTML='';np.removeAttribute('data-ed');np.appendChild(document.createTextNode(sigTxt));np.setAttribute('data-new','1');np.style.fontStyle='italic';
-        lab.parentNode.insertBefore(np,lab);tgt=np}
+      var np=lab.cloneNode(false);np.innerHTML='';np.removeAttribute('data-ed');np.removeAttribute('contenteditable');np.appendChild(document.createTextNode(sigTxt));np.setAttribute('data-new','1');np._ref=lab;np.style.cssText='font-style:italic;font-weight:600;color:#002060;font-size:9pt;text-align:center';
+      lab.parentNode.insertBefore(np,lab);tgt=np;
     }else{
-      var art=page.querySelector('article'),np2=document.createElement('p');np2.setAttribute('contenteditable','true');np2.setAttribute('data-new','1');np2.style.cssText='margin-top:14pt;font-style:italic';np2.textContent=sigTxt;art.appendChild(np2);tgt=np2}
-    tgt.scrollIntoView({block:'center'});tgt.classList.add('signed');flash('Signature ajoutée.')});
+      var art=page.querySelector('article'),np2=document.createElement('p');np2.setAttribute('data-new','1');np2.style.cssText='margin-top:14pt;font-style:italic';np2.textContent=sigTxt;art.appendChild(np2);tgt=np2}
+    tgt.scrollIntoView({block:'center'});tgt.classList.add('signed');flash('Signature ajoutée dans l’encadré.')});
+  var SIGNS=[];
+  var up=async function(b){var f=await API.upload(new File([b],outName,{type:b.type}));if(SIGNS.length)f.signs=SIGNS.slice();return f};
   var build=async function(){
     meta.forEach(function(o){
       var v=txt(o.el);
@@ -1902,12 +1913,19 @@ async function openEditor(blob,outName,title){
     var sect=null;for(var c=body.firstChild;c;c=c.nextSibling){if(c.nodeType===1&&c.localName==='sectPr')sect=c}
     var lastOf=new Map();
     Array.prototype.slice.call(page.querySelectorAll('[data-new]')).forEach(function(el){
-      var np=xd.createElementNS(W_NS,'w:p'),pp=xd.createElementNS(W_NS,'w:pPr'),sp=xd.createElementNS(W_NS,'w:spacing');sp.setAttributeNS(W_NS,'w:before','60');sp.setAttributeNS(W_NS,'w:after','0');pp.appendChild(sp);np.appendChild(pp);
-      var r=xd.createElementNS(W_NS,'w:r'),rp=xd.createElementNS(W_NS,'w:rPr'),it=xd.createElementNS(W_NS,'w:i');rp.appendChild(it);r.appendChild(rp);np.appendChild(r);wSet(xd,np,el.textContent);
+      var np=xd.createElementNS(W_NS,'w:p'),pp=xd.createElementNS(W_NS,'w:pPr'),sp=xd.createElementNS(W_NS,'w:spacing'),inl=!!el._ref;
+      sp.setAttributeNS(W_NS,'w:before',inl?'0':'60');sp.setAttributeNS(W_NS,'w:after','0');pp.appendChild(sp);
+      if(inl){var jc=xd.createElementNS(W_NS,'w:jc');jc.setAttributeNS(W_NS,'w:val','center');pp.appendChild(jc)}
+      np.appendChild(pp);
+      var r=xd.createElementNS(W_NS,'w:r'),rp=xd.createElementNS(W_NS,'w:rPr'),it=xd.createElementNS(W_NS,'w:i');rp.appendChild(it);
+      if(inl){var b0=xd.createElementNS(W_NS,'w:b'),co=xd.createElementNS(W_NS,'w:color'),sz=xd.createElementNS(W_NS,'w:sz');co.setAttributeNS(W_NS,'w:val','002060');sz.setAttributeNS(W_NS,'w:val','15');rp.appendChild(b0);rp.appendChild(co);rp.appendChild(sz)}
+      r.appendChild(rp);np.appendChild(r);wSet(xd,np,el.textContent);
+      if(el._ref){var rx=xps[hps.indexOf(el._ref)];if(rx&&rx.parentNode){rx.parentNode.insertBefore(np,rx);return}}
       var prev=el.previousElementSibling,ref=null;
       while(prev&&!ref){var ix=hps.indexOf(prev);if(ix>=0)ref=xps[ix];else if(lastOf.has(prev))ref=lastOf.get(prev);else prev=prev.previousElementSibling}
       if(ref&&ref.parentNode){ref.parentNode.insertBefore(np,ref.nextSibling)}else if(sect)body.insertBefore(np,sect);else body.appendChild(np);
       lastOf.set(el,np)});
+    SIGNS=wParas0(xd).map(function(p){return wText(p).trim()}).filter(function(s){return /^Signé par /.test(s)});
     var out=new XMLSerializer().serializeToString(xd);
     if(out.indexOf('<?xml')!==0)out='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+out;
     var z2=await JSZip.loadAsync(blob);z2.file('word/document.xml',out);
@@ -1917,20 +1935,20 @@ async function openEditor(blob,outName,title){
   m.querySelector('[data-eddl]').addEventListener('click',run(async function(){
     var b=await build(),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=outName;document.body.appendChild(a);a.click();a.remove();close()}));
   var at=m.querySelector('[data-edat]');if(at)at.addEventListener('click',run(async function(){
-    var b=await build(),file=await API.upload(new File([b],outName,{type:b.type}));PEND.push(file);close();if(window.REDRAWPEND)window.REDRAWPEND();flash('Document joint au message : cliquez sur Envoyer.')}));
+    var b=await build(),file=await up(b);PEND.push(file);close();if(window.REDRAWPEND)window.REDRAWPEND();flash('Document joint au message : cliquez sur Envoyer.')}));
   var sd=m.querySelector('[data-edsend]');if(sd)sd.addEventListener('click',run(async function(){
-    var b=await build(),file=await API.upload(new File([b],outName,{type:b.type}));
+    var b=await build(),file=await up(b);
     var note=(m.querySelector('#ednote')||{value:''}).value.trim();
     await API.send(CUR_CH,note,[file]);close();await refreshThread(true);flash('Document envoyé.')}));
   var fsel=m.querySelector('#edfold');
   if(fsel)API.dossiers().then(function(l){l.sort(function(a,b){return a.numero<b.numero?1:-1});fsel.insertAdjacentHTML('beforeend',l.map(function(d){return '<option value="'+qa(d.id)+'">'+esc(d.numero+' · '+(indiv(d)||d.titre)+(d.statut==='Classé'?' (classé)':''))+'</option>'}).join(''))}).catch(function(){});
   var fg=m.querySelector('[data-edfoldgo]');if(fg)fg.addEventListener('click',run(async function(){
     if(!fsel.value)throw new Error('Choisissez d’abord un dossier.');
-    var b=await build(),file=await API.upload(new File([b],outName,{type:b.type}));
+    var b=await build(),file=await up(b);
     await API.addNote(fsel.value,'Document complété : '+title,[file]);await API.log(fsel.value,'Document complété et rangé : '+title);
     var lab=fsel.options[fsel.selectedIndex].text;close();flash('Document rangé dans le dossier '+lab.split(' · ')[0]+'.')}));
   var d2=m.querySelector('[data-eddos]');if(d2)d2.addEventListener('click',run(async function(){
-    var id=location.hash.replace('#dossier-',''),b=await build(),file=await API.upload(new File([b],outName,{type:b.type}));
+    var id=location.hash.replace('#dossier-',''),b=await build(),file=await up(b);
     await API.addNote(id,'Document complété : '+title,[file]);await API.log(id,'Document complété et joint : '+title);close();flash('Document joint au dossier.');route(true)}));
 }
 
