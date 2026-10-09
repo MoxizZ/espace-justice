@@ -432,6 +432,10 @@ dl.pen.big{max-width:820px;margin-top:18px}
 .garde .act{display:flex;flex-direction:column;gap:4px}.garde .gtel{font-weight:600}.garde .btn{align-self:flex-start;margin-top:6px}
 .signok{display:flex;flex-direction:column;flex-basis:100%;gap:2px;font-size:12.5px;font-weight:600;color:#1f6b3a}
 .msghead .polhint{margin:8px -18px -14px;padding:8px 18px}
+.stb{display:inline-block;margin:2px 0 6px;padding:3px 10px;border-radius:999px;font-size:12.5px;font-weight:700}
+.st-a{background:#FFF1D6;color:#8A5A00}.st-s{background:#E3F4E8;color:#1f6b3a}.st-r{background:#E3F4E8;color:#1f6b3a}
+.dem{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin:2px 0 4px}.dem b{font-size:15px}.dem span{font-weight:600;color:var(--navy)}
+.rangebox{float:right;margin:2px 0 0 12px;padding:8px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface,#fff);font-weight:600;text-decoration:none;color:var(--navy,#0b1f4d)}.rangebox b{display:inline-block;margin-left:6px;min-width:22px;text-align:center;padding:1px 7px;border-radius:999px;background:var(--navy,#0b1f4d);color:#fff;font-size:12.5px}.docrow.rg{grid-template-columns:1fr auto auto}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -752,6 +756,8 @@ function uid(){return (window.crypto&&crypto.randomUUID)?crypto.randomUUID():'id
 function nowIso(){return new Date().toISOString()}
 function dmChannel(a,b){return 'dm:'+[a,b].sort().join('_')}
 var ME=null; /* profil connecté */
+/* demande de la Police : un document Word envoyé par un policier dans un salon Police est « à traiter » jusqu'à sa signature */
+function demandeStatut(ch,files){return (String(ch).indexOf('pol-')===0&&ME&&ME.service==='Police'&&(files||[]).some(function(f){return /\.docx\)?$/i.test(f.name)}))?'a_traiter':null}
 var API;
 if(!LIVE){
   /* ---------- MODE DÉMONSTRATION : données dans ce navigateur seulement ---------- */
@@ -796,7 +802,8 @@ if(!LIVE){
     async deleteMessage(id){var m=ST.messages.filter(function(x){return x.id===id})[0];if(!m)return;if(m.sender!==ME.id&&!isAdm())throw new Error('Seul un administrateur peut supprimer le message d’un autre.');var os=ST.users.filter(function(x){return x.id===m.sender})[0];if(os&&os.role==='super'&&ME.role!=='super'&&m.sender!==ME.id)throw new Error('Les messages du super-administrateur sont protégés.');ST.messages=ST.messages.filter(function(x){return x.id!==id});save()},
     async messages(ch){if(!canChannel(ch))return [];return ST.messages.filter(function(m){return m.channel===ch}).sort(function(a,b){return a.created_at<b.created_at?-1:1}).slice(-200)},
     async recent(){return ST.messages.filter(function(m){return canChannel(m.channel)}).slice(-300)},
-    async send(ch,body,files){if(!canChannel(ch))throw new Error('Vous n’avez pas accès à ce salon.');ST.messages.push({id:uid(),channel:ch,sender:ME.id,body:body,files:files||[],created_at:nowIso()});save()},
+    async send(ch,body,files){if(!canChannel(ch))throw new Error('Vous n’avez pas accès à ce salon.');var mm={id:uid(),channel:ch,sender:ME.id,body:body,files:files||[],created_at:nowIso()};var st=demandeStatut(ch,files);if(st)mm.statut=st;ST.messages.push(mm);save()},
+    async updateMessage(id,p){var m=ST.messages.filter(function(x){return x.id===id})[0];if(!m||!canChannel(m.channel))throw new Error('Accès refusé.');var pol=isPolice();if(p.files)m.files=p.files;if(!pol){if(p.statut)m.statut=p.statut;if(p.rangee)m.rangee=p.rangee}save()},
     async copyFile(f){return Object.assign({},f)},
     async upload(file){return new Promise(function(res,rej){if(file.size>1200000)return rej(new Error('Fichier trop gros pour la démonstration (1,2 Mo maximum).'));var r=new FileReader();r.onload=function(){res({name:file.name,size:file.size,data:r.result})};r.onerror=rej;r.readAsDataURL(file)})},
     async fileUrl(f){return f.data||f.url},
@@ -843,7 +850,8 @@ if(!LIVE){
     async deleteMessage(id){var r=await SB.from('messages').delete().eq('id',id).select();if(r.error)throw new Error(r.error.message);if(!r.data||!r.data.length)throw new Error('Suppression refusée.')},
     async messages(ch){if(!canChannel(ch))return [];return chk(await SB.from('messages').select('*').eq('channel',ch).order('created_at',{ascending:true}).limit(200))},
     async recent(){return chk(await SB.from('messages').select('id,channel,sender,created_at').order('created_at',{ascending:false}).limit(300))},
-    async send(ch,body,files){chk(await SB.from('messages').insert({channel:ch,sender:ME.id,body:body,files:files||[]}))},
+    async send(ch,body,files){var row={channel:ch,sender:ME.id,body:body,files:files||[]};var st=demandeStatut(ch,files);if(st)row.statut=st;chk(await SB.from('messages').insert(row))},
+    async updateMessage(id,p){var r=await SB.rpc('maj_message',{mid:id,f:p.files||null,st:p.statut||null,rg:p.rangee||null});if(r.error)throw new Error(r.error.message)},
     async copyFile(f){
       if(!f.path)return Object.assign({},f);
       var safe=String(f.name).replace(/[^\w.\-]+/g,'_'),np=ME.id+'/'+Date.now()+'_'+safe;
@@ -902,14 +910,15 @@ var FREG=[];
 /* « Ranger dans un dossier » : seulement dans les salons Police, pour le service concerné (Parquet, Instruction, Siège) et les administrateurs */
 var RANGER_SVC={'pol-parquet':['Parquet'],'pol-instruction':['Instruction'],'pol-tribunal':['Siège']};
 function RANGER_OK(){return !!ME&&/^#messages/.test(location.hash)&&typeof CUR_CH!=='undefined'&&!!RANGER_SVC[CUR_CH]&&(isAdm()||RANGER_SVC[CUR_CH].indexOf(ME.service)>=0)}
-function fileLinks(fs){
+var FMSG={};
+function fileLinks(fs,m){
   if(!fs||!fs.length)return '';
   return '<div class="mf">'+fs.map(function(f){
     var isD=/\.docx\)?$/i.test(f.name);
-    var rg=(RANGER_OK())?'<button class="fchip edt" type="button" data-fr="__I__">📁 Ranger dans un dossier</button>':'';
+    var rg=(RANGER_OK()&&m&&m.statut==='signee')?'<button class="fchip edt" type="button" data-fr="__I__">📁 Ranger dans un dossier</button>':'';
     var sg=(f.signs&&f.signs.length)?'<span class="signok">'+f.signs.map(function(s){return '<span>✓ '+esc(s)+'</span>'}).join('')+'</span>':'';
-    if(f.url&&!f.data){FREG.push(f);return '<a class="fchip" href="'+qa(f.url)+'" target="_blank" rel="noopener">📄 '+esc(f.name)+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+rg.replace('__I__',FREG.length-1)+sg}
-    FREG.push(f);return '<a class="fchip" href="#" data-fi="'+(FREG.length-1)+'">📎 '+esc(f.name)+(f.size?' <small>'+fsize(f.size)+'</small>':'')+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+rg.replace('__I__',FREG.length-1)+sg;
+    if(f.url&&!f.data){FREG.push(f);FMSG[FREG.length-1]=m||null;return '<a class="fchip" href="'+qa(f.url)+'" target="_blank" rel="noopener">📄 '+esc(f.name)+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+rg.replace('__I__',FREG.length-1)+sg}
+    FREG.push(f);FMSG[FREG.length-1]=m||null;return '<a class="fchip" href="#" data-fi="'+(FREG.length-1)+'">📎 '+esc(f.name)+(f.size?' <small>'+fsize(f.size)+'</small>':'')+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+rg.replace('__I__',FREG.length-1)+sg;
   }).join('')+'</div>';
 }
 var DOCDATA=null;
@@ -943,11 +952,12 @@ function bindFiles(root){
       if(!l.length){flash('Aucun dossier où ranger ce document.',true);return}
       var id=await dlgOpen({title:'Ranger dans quel dossier ?',body:f.name,ok:'Ranger',options:l.map(function(d){return [d.id,d.numero+' · '+(indiv(d)||d.titre)+(d.statut==='Classé'?' (classé)':'')]})});
       if(!id)return;
-      var cp=await API.copyFile(f);await API.addNote(id,'Document reçu par la messagerie : '+f.name,[cp]);await API.log(id,'Document reçu par la messagerie et rangé : '+f.name);
-      var d=l.filter(function(x){return x.id===id})[0];await dlgOpen({title:'Document lié au dossier',body:'« '+f.name+' » a bien été lié au dossier '+(d?d.numero+' · '+(indiv(d)||d.titre):'')+'.\n\nIl apparaît dans les Pièces du dossier ; la demande reste aussi dans la messagerie.',ok:'OK',info:true});
+      var cp=await API.copyFile(f);var mt0=f.meta||{},lb=mt0.titre?('Demande de la Police : '+mt0.titre+(mt0.individu?' ('+mt0.individu+')':'')):('Document reçu par la messagerie : '+f.name);await API.addNote(id,lb,[cp]);await API.log(id,lb+' — rangé');var msg=FMSG[+b.getAttribute('data-fr')];
+      var d=l.filter(function(x){return x.id===id})[0];if(msg){try{await API.updateMessage(msg.id,{statut:'rangee',rangee:(d?d.numero+' · '+(indiv(d)||d.titre):'')})}catch(e2){}}
+      await dlgOpen({title:'Document lié au dossier',body:'« '+f.name+' » a bien été lié au dossier '+(d?d.numero+' · '+(indiv(d)||d.titre):'')+'.\n\nIl apparaît dans les Pièces du dossier ; la demande reste aussi dans la messagerie.',ok:'OK',info:true});if(msg)await refreshThread(true);
     }catch(err){flash(err.message,true)}
   })});
-  (root||document).querySelectorAll('[data-fe]').forEach(function(b){b.addEventListener('click',function(){editFile(FREG[+b.getAttribute('data-fe')])})});
+  (root||document).querySelectorAll('[data-fe]').forEach(function(b){b.addEventListener('click',function(){editFile(FREG[+b.getAttribute('data-fe')],FMSG[+b.getAttribute('data-fe')])})});
   (root||document).querySelectorAll('[data-fi]').forEach(function(a){a.addEventListener('click',async function(e){
     e.preventDefault();var f=FREG[+a.getAttribute('data-fi')];
     try{
@@ -1075,9 +1085,10 @@ function viewGuide(g){
 }
 
 /* ===================== DOCUMENTS ===================== */
-function viewDocuments(){
+async function viewDocuments(){
+  var nr=0;if(!isPolice()){try{nr=(await rangedDocs()).length}catch(x){}}
   var cats={};DOCS.forEach(function(d,i){d.i=i;(cats[d.cat]=cats[d.cat]||[]).push(d)});
-  var h='<div class="wrap page">'+pageHead('Documents types','Les modèles d’actes de la Justice. Téléchargez-les en Word ou en PDF, ou complétez et signez-les directement ici. Pour en envoyer un à un collègue, utilisez la messagerie.')+
+  var h='<div class="wrap page">'+(isPolice()?'':'<a class="rangebox" href="#documents-ranges">📁 Documents rangés <b>'+nr+'</b></a>')+pageHead('Documents types','Les modèles d’actes de la Justice. Téléchargez-les en Word ou en PDF, ou complétez et signez-les directement ici. Pour en envoyer un à un collègue, utilisez la messagerie.')+
   '<input class="filter" id="df" type="search" placeholder="Filtrer les documents (ex. mandat, jugement, plainte)" aria-label="Filtrer les documents" style="max-width:520px;margin-bottom:14px">';
   Object.keys(cats).forEach(function(c){
     h+='<section class="docs-cat"><h2 style="font-size:22px;margin:22px 0 10px">'+esc(c)+'</h2><div class="doclist">'+cats[c].map(function(d){
@@ -1111,15 +1122,26 @@ function chanTitle(ch){
   if(ch.indexOf('dm:')===0){var ids=ch.slice(3).split('_');var o=ids.filter(function(x){return x!==ME.id})[0]||ids[0];return 'Message privé · '+whoLong(o)}
   return ch;
 }
+/* état d'une demande de la Police : à traiter → signé → (justice seulement) rangé dans un dossier */
+function stBadge(m){
+  if(!m.statut)return '';
+  var j=!isPolice(),mt=((m.files||[])[0]||{}).meta||{};
+  var lab=mt.titre?'<div class="dem"><b>'+esc(mt.titre)+'</b>'+(mt.individu?'<span>'+esc(mt.individu)+'</span>':'')+'</div>':'';
+  var b;
+  if(m.statut==='a_traiter')b='<div class="stb st-a">⏳ À traiter</div>';
+  else if(m.statut==='rangee')b='<div class="stb st-r">✓ Signé · 📁 Rangé'+(j&&m.rangee?' dans le dossier '+esc(m.rangee):'')+'</div>';
+  else b='<div class="stb st-s">✓ Signé</div>';
+  return lab+b;
+}
 function msgHtml(m){
   var me=m.sender===ME.id;
-  return '<div class="msg'+(me?' me':'')+'"><div class="mh"><b>'+esc(who(m.sender))+'</b><small>'+esc((MAP[m.sender]||{}).grade||'')+' · '+fdate(m.created_at)+'</small>'+(((me||isAdm())&&(me||isSuper()||!(MAP[m.sender]&&MAP[m.sender].role==='super')))?'<button class="mdel" type="button" data-del="'+qa(m.id)+'" title="Supprimer ce message" aria-label="Supprimer ce message"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v5M14 11v5"/></svg></button>':'')+'</div><div class="mb">'+linkify(esc(m.body||'').replace(/\n/g,'<br>'),null)+'</div>'+fileLinks(m.files)+'</div>';
+  return '<div class="msg'+(me?' me':'')+'"><div class="mh"><b>'+esc(who(m.sender))+'</b><small>'+esc((MAP[m.sender]||{}).grade||'')+' · '+fdate(m.created_at)+'</small>'+(((me||isAdm())&&(me||isSuper()||!(MAP[m.sender]&&MAP[m.sender].role==='super')))?'<button class="mdel" type="button" data-del="'+qa(m.id)+'" title="Supprimer ce message" aria-label="Supprimer ce message"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v5M14 11v5"/></svg></button>':'')+'</div>'+stBadge(m)+'<div class="mb">'+linkify(esc(m.body||'').replace(/\n/g,'<br>'),null)+'</div>'+fileLinks(m.files,m)+'</div>';
 }
 async function refreshThread(force){
   if(!CUR_CH)return;
   var th=$('#thread');if(!th)return;
   var ms=await API.messages(CUR_CH);
-  var sig=ms.length+':'+(ms.length?ms[ms.length-1].id:'');
+  var sig=ms.length+':'+(ms.length?ms[ms.length-1].id:'')+':'+ms.map(function(x){return (x.statut||'')+((x.files||[]).map(function(f){return (f.signs||[]).length}).join(''))}).join(',');
   if(!force&&sig===LASTSIG)return;
   var near=th.scrollHeight-th.scrollTop-th.clientHeight<80||force;
   LASTSIG=sig;FREG=[];
@@ -1445,10 +1467,12 @@ async function viewSearchAll(q){
   var hd=ds.filter(function(d){return has([d.numero,indiv(d),d.titre,d.parties,d.juridiction,d.resume,d.statut,names(d)].join(' '))});
   var hn=notes.filter(function(n){return dm[n.dossier_id]&&n.body&&has(n.body)});
   var hp=[];notes.forEach(function(n){if(!dm[n.dossier_id])return;(n.files||[]).forEach(function(f){if(has(f.name))hp.push({f:f,n:n})})});
+  var hr=[];try{hr=(await rangedDocs()).filter(function(x){return has([x.ind,x.meta.titre,x.f.name,x.d.numero].join(' '))})}catch(x){}
   var sec=function(titre,n,body){return n?'<section class="block" style="padding-top:8px"><h2 style="font-size:22px">'+titre+' ('+n+')</h2>'+body+'</section>':''};
   var hit=function(d,where,b,p){return '<li><a class="hit" href="#dossier-'+qa(d.id)+'"><span class="where">'+where+'</span><b>'+b+'</b>'+(p?'<p>'+p+'</p>':'')+'</a></li>'};
   var out=sec('Dossiers',hd.length,'<div class="dlist">'+hd.slice(0,20).map(function(d){return '<a class="dcard" href="#dossier-'+qa(d.id)+'"><span class="dnum">'+(isStar(d)?'⭐ ':'')+esc(d.numero)+'</span><b>'+esc(d.titre)+'</b><span>'+(indiv(d)?'👤 '+esc(indiv(d))+' · ':'')+esc(d.juridiction||'')+'</span><span class="stt st-'+qa(d.statut)+'">'+esc(d.statut)+'</span></a>'}).join('')+'</div>')+
     sec('Notes',hn.length,'<ul class="res">'+hn.slice(0,20).map(function(n){var d=dm[n.dossier_id];return hit(d,'Note · dossier '+esc(d.numero)+' · '+fdate(n.created_at),esc(d.titre),snipN(n.body,t))}).join('')+'</ul>')+
+    sec('Documents rangés',hr.length,'<ul class="res">'+hr.slice(0,20).map(function(x){return hit(x.d,'Document rangé · dossier '+esc(x.d.numero)+' · '+fdate(x.at),esc(x.meta.titre),esc(x.ind||''))}).join('')+'</ul>')+
     sec('Pièces',hp.length,'<ul class="res">'+hp.slice(0,20).map(function(x){var d=dm[x.n.dossier_id];return hit(d,'Pièce · dossier '+esc(d.numero)+' · '+fdate(x.n.created_at),'📎 '+esc(x.f.name),esc(d.titre))}).join('')+'</ul>');
   if(!out)return html;
   var nc=search(q).length;
@@ -1484,10 +1508,13 @@ async function viewIndividu(k){
   var nxt=D0.ech.filter(function(x){return !x.e.done}).sort(function(a,b){return a.e.date_heure<b.e.date_heure?-1:1});
   FREG=[];
   var pcs=D0.pcs.sort(function(a,b){return a.at<b.at?1:-1});
+  var rdocs=[];try{var kn=norm(indiv(ds[0]));rdocs=(await rangedDocs()).filter(function(x){return ds.some(function(d){return d.id===x.d.id})||norm(x.ind)===kn})}catch(x){}
+  var rdH=rdocs.length?'<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Documents de la Police ('+rdocs.length+')</h2><div class="doclist">'+rdocs.map(rangedRow).join('')+'</div></section>':'';
   return '<div class="wrap page"><div class="crumb"><a href="#accueil">Accueil</a> › <a href="#dossiers">Dossiers</a> › Fiche d’individu</div>'+
   '<div class="ph"><div><div class="dnum">Fiche d’individu</div><h1>'+esc(indiv(ds[0]))+'</h1></div><div class="dact"><button class="btn ghost" id="ipdf" type="button">Exporter la fiche en PDF</button></div></div>'+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Résumé</h2><p class="res-txt">'+esc(indivSummary(ds))+'</p>'+
   (nxt.length?'<p class="sub" style="margin-top:8px">📅 <b>Prochaine échéance :</b> '+esc(nxt[0].e.type)+' le '+fday(nxt[0].e.date_heure)+' à '+ftime(nxt[0].e.date_heure)+' ('+reste(nxt[0].e.date_heure)+') — dossier <a href="#dossier-'+qa(nxt[0].d.id)+'">'+esc(nxt[0].d.numero)+'</a>.</p>':'<p class="sub" style="margin-top:8px">Aucune échéance à venir.</p>')+'</section>'+
+  rdH+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Dossiers en cours ('+enc.length+')</h2>'+(enc.length?'<div class="dlist">'+enc.map(card).join('')+'</div>':'<p class="sub">Aucun dossier en cours.</p>')+'</section>'+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Dossiers classés ('+cl.length+')</h2>'+(cl.length?'<div class="dlist">'+cl.map(card).join('')+'</div>':'<p class="sub">Aucun dossier classé.</p>')+'</section>'+
   '<section class="block" style="padding-top:8px"><h2 style="font-size:22px">Dossiers liés ('+D0.lk.length+')</h2>'+(D0.lk.length?'<div class="dlist">'+D0.lk.map(function(x){var d=x.d;return '<a class="dcard" href="#dossier-'+qa(d.id)+'"><span class="dnum">'+esc(d.numero)+'</span><b>'+esc(d.titre)+'</b><span>'+(indiv(d)?'👤 '+esc(indiv(d))+' · ':'')+esc(d.juridiction||'')+' · lié à '+esc(x.via.join(', '))+'</span><span class="stt st-'+qa(d.statut)+'">'+esc(d.statut)+'</span></a>'}).join('')+'</div>':'<p class="sub">Aucun dossier lié aux dossiers de cette personne.</p>')+'</section>'+
@@ -1769,13 +1796,13 @@ function edCtx(){
   if(/^#dossier-/.test(h))return 'dos';
   return '';
 }
-async function editFile(f){
+async function editFile(f,msg){
   try{
     var bl;
     if(f.url&&docHas(f.url))bl=docBlob(f.url);
     else{var u=await API.fileUrl(f);var r=await fetch(u);if(!r.ok)throw new Error('fichier introuvable ('+r.status+')');bl=await r.blob()}
     var nm=String(f.name).replace(/\s*\(\.docx\)$/i,'').replace(/\.docx$/i,'').replace(/_complete$/,'');
-    openEditor(bl,nm+(/^(signé|complété)/i.test(nm)?'':'')+'_complete.docx',f.name);
+    openEditor(bl,(msg&&msg.statut)?String(f.name):nm+'_complete.docx',f.name,msg);
   }catch(err){flash('Impossible d’ouvrir le document : '+err.message,true)}
 }
 function openTemplateEditor(d){
@@ -1849,7 +1876,7 @@ function wParas0(xd){return Array.prototype.slice.call(xd.getElementsByTagNameNS
 
 /* ---- Éditeur fidèle : le vrai document Word s'affiche, on écrit directement dessus ---- */
 var W14_NS='http://schemas.microsoft.com/office/word/2010/wordml';
-async function openEditor(blob,outName,title){
+async function openEditor(blob,outName,title,msg){
   if(typeof docx==='undefined'||!docx.renderAsync)return openEditorList(blob,outName,title);
   var zip=await JSZip.loadAsync(blob),xml=await zip.file('word/document.xml').async('string');
   var xd=new DOMParser().parseFromString(xml,'application/xml');
@@ -1861,9 +1888,9 @@ async function openEditor(blob,outName,title){
    '<p class="sub">Cliquez dans le document pour écrire (cases à cocher : cliquez sur la case). Les zones en jaune sont à compléter. « Signer » ajoute votre signature et la date.</p>'+
    '<div class="edtop"><button class="btn small" type="button" data-sig>✍ Signer</button><span class="sub" id="edcount"></span></div>'+
    '<div class="edpage" id="edpage" lang="fr"><p class="sub" style="padding:20px">Ouverture du document…</p></div>'+
-   (ctx==='msg'?'<input id="ednote" class="filter" placeholder="Message d’accompagnement (facultatif)" aria-label="Message d’accompagnement">':'')+
+   (ctx==='msg'&&!(msg&&msg.statut)?'<input id="ednote" class="filter" placeholder="Message d’accompagnement (facultatif)" aria-label="Message d’accompagnement">':'')+
    (ctx!=='dos'&&!isPolice()?'<div class="edfold"><select id="edfold" aria-label="Dossier de rangement"><option value="">Ranger une copie dans un dossier…</option></select><button class="btn ghost small" type="button" data-edfoldgo>Ranger</button></div>':'')+'<div class="edbar"><button class="btn ghost" type="button" data-edx>Annuler</button><button class="btn ghost" type="button" data-eddl>Télécharger</button>'+
-   (ctx==='msg'?'<button class="btn ghost" type="button" data-edat>Joindre au message</button><button class="btn" type="button" data-edsend>Envoyer</button>':'')+
+   (ctx==='msg'&&msg&&msg.statut?'<button class="btn" type="button" data-edupd>Enregistrer sur la demande</button>':ctx==='msg'?'<button class="btn ghost" type="button" data-edat>Joindre au message</button><button class="btn" type="button" data-edsend>Envoyer</button>':'')+
    (ctx==='dos'?'<button class="btn" type="button" data-eddos>Joindre au dossier</button>':'')+'</div></div>';
   document.body.appendChild(m);document.body.style.overflow='hidden';
   var close=function(){m.remove();document.body.style.overflow=''};
@@ -1928,7 +1955,12 @@ async function openEditor(blob,outName,title){
       var art=page.querySelector('article'),np2=document.createElement('p');np2.setAttribute('data-new','1');np2.style.cssText='margin-top:14pt;font-style:italic';np2.textContent=sigTxt;art.appendChild(np2);tgt=np2}
     tgt.scrollIntoView({block:'center'});tgt.classList.add('signed');flash('Signature ajoutée dans l’encadré.')});
   var SIGNS=[];
-  var up=async function(b){var f=await API.upload(new File([b],outName,{type:b.type}));if(SIGNS.length)f.signs=SIGNS.slice();return f};
+  var indivOf=function(){
+    var tds=Array.prototype.slice.call(page.querySelectorAll('td')),val=function(re){for(var i=0;i<tds.length;i++){if(re.test(tds[i].textContent.trim())){var n=tds[i].nextElementSibling;if(n)return n.textContent.trim()}}return ''};
+    var nom=val(/^Nom( \/ signalement)?$/),pre=val(/^Prénom$/),x=(nom+(pre?' '+pre:'')).trim();
+    if(!x)x=val(/^Titulaire$/)||val(/^Personne\(s\) mise\(s\) en cause$/);
+    return x.replace(/_+/g,'').trim()};
+  var up=async function(b){var f=await API.upload(new File([b],outName,{type:b.type}));if(SIGNS.length)f.signs=SIGNS.slice();f.meta={titre:(msg&&msg.files&&msg.files[0]&&msg.files[0].meta&&msg.files[0].meta.titre)||title,individu:indivOf()};return f};
   var build=async function(){
     meta.forEach(function(o){
       var v=txt(o.el);
@@ -1968,6 +2000,13 @@ async function openEditor(blob,outName,title){
     var b=await build(),file=await up(b);
     var note=(m.querySelector('#ednote')||{value:''}).value.trim();
     await API.send(CUR_CH,note,[file]);close();await refreshThread(true);flash('Document envoyé.')}));
+  var upd=m.querySelector('[data-edupd]');if(upd)upd.addEventListener('click',run(async function(){
+    var b=await build(),file=await up(b),mine=SIGNS.some(function(s){return s.indexOf(ME.nom)>=0}),sig=!isPolice()&&mine;
+    var f2=Object.assign({},file,{name:outName});
+    await API.updateMessage(msg.id,{files:[f2],statut:sig?'signee':null});
+    close();await refreshThread(true);
+    if(sig)await dlgOpen({title:'Demande signée',body:'Votre signature a été enregistrée sur la demande. Elle reste dans la discussion, marquée « Signé ».\n\nUn bouton « Ranger dans un dossier » est maintenant disponible sous le document.',ok:'OK',info:true});
+    else flash('Document enregistré sur la demande (pas encore signé).')}));
   var fsel=m.querySelector('#edfold');
   if(fsel)API.dossiers().then(function(l){l.sort(function(a,b){return a.numero<b.numero?1:-1});fsel.insertAdjacentHTML('beforeend',l.map(function(d){return '<option value="'+qa(d.id)+'">'+esc(d.numero+' · '+(indiv(d)||d.titre)+(d.statut==='Classé'?' (classé)':''))+'</option>'}).join(''))}).catch(function(){});
   var fg=m.querySelector('[data-edfoldgo]');if(fg)fg.addEventListener('click',run(async function(){
@@ -1986,6 +2025,31 @@ function roStrip(){
   m.querySelectorAll('[data-unasg]').forEach(function(b){var id=b.getAttribute('data-unasg');if(id!==ME.id&&b.parentNode){var a=document.createElement('a');a.className='fchip';a.href='#messages-dm-'+id;a.textContent='✉ Écrire';a.title='Écrire à cette personne chargée du dossier';b.parentNode.appendChild(a)}});
   m.classList.add('ro');
   var pg=m.querySelector('.page');if(pg&&!pg.querySelector('.robanner')){var d=document.createElement('p');d.className='robanner';d.textContent='Consultation seule : en tant qu’OPJ, vous voyez les dossiers dont vous êtes chargé sans pouvoir les modifier. Pour une demande, écrivez à la personne chargée (✉) ou utilisez les salons Police de la messagerie.';pg.insertBefore(d,pg.firstChild.nextSibling||null)}
+}
+
+
+/* ---------- Documents rangés (demandes de la Police liées à un dossier), par nom et prénom de l'individu ---------- */
+async function rangedDocs(){
+  var ds=await API.dossiers(),dm={};ds.forEach(function(d){dm[d.id]=d});
+  var notes=[];try{notes=await API.allNotes()}catch(x){}
+  var out=[];
+  notes.forEach(function(n){var d=dm[n.dossier_id];if(!d)return;(n.files||[]).forEach(function(f){if(f&&f.meta&&f.meta.titre)out.push({f:f,meta:f.meta,d:d,at:n.created_at,ind:(f.meta.individu||'').trim()})})});
+  out.sort(function(a,b){var x=norm(a.ind||'~'),y=norm(b.ind||'~');return x<y?-1:x>y?1:(a.at<b.at?1:-1)});
+  return out;
+}
+function rangedRow(x){
+  FREG.push(x.f);var i=FREG.length-1;
+  return '<div class="docrow rg"><span class="dn"><b>'+esc(x.meta.titre)+'</b><small>'+fdate(x.at)+' · dossier <a href="#dossier-'+qa(x.d.id)+'">'+esc(x.d.numero)+'</a></small>'+
+    ((x.f.signs&&x.f.signs.length)?'<small class="visa">'+x.f.signs.map(function(s){return '✓ '+esc(s)}).join('<br>')+'</small>':'')+'</span>'+
+    '<a class="fchip" href="#" data-fi="'+i+'">📎 Ouvrir</a><span></span></div>';
+}
+async function viewRanges(){
+  var l=await rangedDocs();FREG=[];
+  var groups=[],cur=null;
+  l.forEach(function(x){var k=x.ind||'Individu non précisé';if(!cur||cur.k!==k){cur={k:k,l:[]};groups.push(cur)}cur.l.push(x)});
+  return '<div class="wrap page">'+pageHead('Documents rangés','Les demandes de la Police rangées dans un dossier, classées par nom et prénom de l’individu.','<a href="#documents">Documents</a> › Documents rangés')+
+    '<a class="btn ghost" href="#documents">← Documents types</a>'+
+    (groups.length?groups.map(function(g){return '<section class="docs-cat"><h2 style="font-size:20px;margin:22px 0 8px">👤 '+esc(g.k)+' <small style="font-weight:400">('+g.l.length+')</small></h2><div class="doclist">'+g.l.map(rangedRow).join('')+'</div></section>'}).join(''):'<p class="sub" style="margin-top:18px">Aucun document rangé pour l’instant. Un document apparaît ici quand une demande de la Police signée est rangée dans un dossier.</p>')+'</div>';
 }
 
 /* ===================== NAVIGATION ET DÉMARRAGE ===================== */
@@ -2025,7 +2089,8 @@ async function route(force){
     if(h==='accueil'){html=await viewHome();after=bindHome}
     else if(h==='codes')html=viewCodes();
     else if(h==='guides')html=viewGuides();
-    else if(h==='documents'){html=viewDocuments();after=bindDocuments}
+    else if(h==='documents'){html=await viewDocuments();after=bindDocuments}
+    else if(h==='documents-ranges'){html=await viewRanges();after=function(){bindFiles()}}
     else if(h==='recherche')html=await viewSearchAll(LASTQ);
     else if((m=h.match(/^messages(?:-(.+))?$/))){CUR_CH=null;html=await viewMessages(m[1]);after=bindMessages}
     else if(h==='annuaire'){html=await viewAnnuaire();after=bindAnnuaire}
