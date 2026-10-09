@@ -927,7 +927,7 @@ var FREG=[];
 function RANGER_OK(f){return !!ME&&/^#messages/.test(location.hash)&&typeof CUR_CH!=='undefined'&&isDemCh(CUR_CH)&&ROLE_RANGER()}
 var FMSG={};
 /* état de rangement d'un message : jetons '@docs' (Documents rangés), '@d:<dossier>' (dossier), '@retire' (retiré, peut être remis) */
-function rgParse(v){var o={docs:false,dos:[],ret:false};String(v||'').split('\n').forEach(function(t){t=t.trim();if(!t)return;if(t==='@docs')o.docs=true;else if(t==='@retire')o.ret=true;else if(t.indexOf('@d:')===0)o.dos.push(t.slice(3));else o.dos.push(t)});return o}
+function rgParse(v){var o={docs:false,dos:[],ret:false,tr:''};String(v||'').split('\n').forEach(function(t){t=t.trim();if(!t)return;if(t.indexOf('@t:')===0){o.tr=t.slice(3);return}if(t==='@docs')o.docs=true;else if(t==='@retire')o.ret=true;else if(t.indexOf('@d:')===0)o.dos.push(t.slice(3));else o.dos.push(t)});return o}
 function rgBuild(o){var l=[];if(o.docs)l.push('@docs');o.dos.forEach(function(x){l.push('@d:'+x)});if(!l.length&&o.ret)l.push('@retire');return l.join('\n')}
 async function rgUpdate(mid,fn){var m=await API.getMessage(mid);if(!m)return;var o=rgParse(m.rangee);fn(o);var any=o.docs||o.dos.length;if(!any)o.ret=true;await API.updateMessage(mid,{statut:any?'rangee':'signee',rangee:rgBuild(o)})}
 function fileLinks(fs,m){
@@ -994,13 +994,14 @@ function bindFiles(root){
     var k=+b.getAttribute('data-ft'),f=FREG[k],msg=FMSG[k];if(!f||!msg)return;
     try{
       await loadMembers();
-      var ms=approved().filter(function(x){return x.id!==ME.id});
+      var ms=approved().filter(function(x){return x.id!==ME.id&&dmChannel(ME.id,x.id)!==CUR_CH});
+      if(!ms.length){flash('Aucune autre personne à qui transférer.',true);return}
       var u=await dlgOpen({title:'Transférer pour signature',body:'« '+f.name+' » sera envoyé en message privé à la personne choisie, avec les signatures déjà posées. Elle pourra le signer à son tour.',ok:'Transférer',options:ms.map(function(x){return [x.id,x.nom+' · '+x.grade]})});
       if(!u)return;
       var t=ms.filter(function(x){return x.id===u})[0],cp=await API.copyFile(f);
       await API.send(dmChannel(ME.id,u),'↪ Transféré par '+ME.nom+' pour signature.',[cp]);
       try{await API.updateMessage(msg.id,{statut:'transferee',rangee:'@t:'+(t?t.nom:'')})}catch(e2){}
-      flash('Document transféré à '+(t?t.nom:'')+' : la suite des signatures se fait dans votre message privé avec cette personne.');await refreshThread(true);
+      flash('Document transféré à '+(t?t.nom:'')+'. La suite des signatures se fait dans cette discussion.');location.hash='messages-dm-'+u;
     }catch(err){flash(err.message,true)}
   })});
   (root||document).querySelectorAll('[data-fv]').forEach(function(b){b.addEventListener('click',function(){viewFile(FREG[+b.getAttribute('data-fv')])})});
@@ -1176,7 +1177,7 @@ function stBadge(m){
   if(!mt.titre)mt=Object.assign({},mt,{titre:String(f0.name||'Document').replace(/\s*\(\.docx\)$/i,'').replace(/\.docx$/i,'').replace(/_/g,' ')});
   var lab=mt.titre?'<div class="dem"><b>'+esc(mt.titre)+'</b>'+(mt.individu?'<span>'+esc(mt.individu)+'</span>':'')+'</div>':'';
   var b;
-  if(m.statut==='a_traiter')b='<div class="stb st-a">⏳ À traiter'+(mt.slots>1?' · '+Math.min(mt.signed||0,mt.slots)+'/'+mt.slots+' signatures':'')+'</div>';
+  if(m.statut==='a_traiter')b='<div class="stb st-a">⏳ À traiter'+(mt.slots>1?' · '+Math.min(mt.signed||0,mt.slots)+'/'+mt.slots+' signatures':'')+(rgParse(m.rangee).tr?' · ↪ transféré à '+esc(rgParse(m.rangee).tr):'')+'</div>';
   else if(m.statut==='rangee'){var ro=rgParse(m.rangee);b='<div class="stb st-r">✓ Signé · 📁 Rangé'+(j?' : '+[ro.docs?'Documents rangés':''].concat(ro.dos.map(function(x){return 'dossier '+esc(x)})).filter(Boolean).join(' + ')+(!ro.docs?' <i>(retiré des Documents rangés : on peut le remettre)</i>':''):'')+'</div>'}
   else if(m.statut==='transferee')b='<div class="stb st-s">↪ Transféré à '+esc(String(m.rangee||'').replace(/^@t:/,''))+' pour la suite des signatures</div>';
   else if(j&&rgParse(m.rangee).ret)b='<div class="stb st-s">✓ Signé · ↩ Retiré du rangement : on peut le ranger à nouveau</div>';
