@@ -805,8 +805,9 @@ if(!LIVE){
     async messages(ch){if(!canChannel(ch))return [];return ST.messages.filter(function(m){return m.channel===ch}).sort(function(a,b){return a.created_at<b.created_at?-1:1}).slice(-200)},
     async recent(){return ST.messages.filter(function(m){return canChannel(m.channel)}).slice(-300)},
     async send(ch,body,files){if(!canChannel(ch))throw new Error('Vous n’avez pas accès à ce salon.');var mm={id:uid(),channel:ch,sender:ME.id,body:body,files:files||[],created_at:nowIso()};var st=demandeStatut(ch,files);if(st)mm.statut=st;ST.messages.push(mm);save()},
-    async updateMessage(id,p){var m=ST.messages.filter(function(x){return x.id===id})[0];if(!m||!canChannel(m.channel))throw new Error('Accès refusé.');var pol=isPolice();if(p.files)m.files=p.files;if(p.statut&&(!pol||p.statut==='signee'))m.statut=p.statut;if(!pol&&p.rangee)m.rangee=p.rangee;save()},
+    async updateMessage(id,p){var m=ST.messages.filter(function(x){return x.id===id})[0];if(!m||!canChannel(m.channel))throw new Error('Accès refusé.');var pol=isPolice();if(p.files)m.files=p.files;if(p.statut&&(!pol||p.statut==='signee'))m.statut=p.statut;if(!pol&&p.rangee!=null)m.rangee=p.rangee;save()},
     async copyFile(f){return Object.assign({},f)},
+    async getMessage(id){return ST.messages.filter(function(x){return x.id===id})[0]||null},
     async ranges(){return (ST.ranges||[]).slice().sort(function(a,b){return a.created_at<b.created_at?1:-1})},
     async addRange(r){ST.ranges=ST.ranges||[];ST.ranges.push(Object.assign({id:uid(),created_by:ME.id,created_at:nowIso()},r));save()},
     async delRange(id){ST.ranges=(ST.ranges||[]).filter(function(x){return x.id!==id});save()},
@@ -856,9 +857,10 @@ if(!LIVE){
     async messages(ch){if(!canChannel(ch))return [];return chk(await SB.from('messages').select('*').eq('channel',ch).order('created_at',{ascending:true}).limit(200))},
     async recent(){return chk(await SB.from('messages').select('id,channel,sender,created_at').order('created_at',{ascending:false}).limit(300))},
     async send(ch,body,files){var row={channel:ch,sender:ME.id,body:body,files:files||[]};var st=demandeStatut(ch,files);if(st)row.statut=st;chk(await SB.from('messages').insert(row))},
-    async updateMessage(id,p){var r=await SB.rpc('maj_message',{mid:id,f:p.files||null,st:p.statut||null,rg:p.rangee||null});if(r.error)throw new Error(r.error.message)},
+    async updateMessage(id,p){var r=await SB.rpc('maj_message',{mid:id,f:p.files||null,st:p.statut||null,rg:p.rangee!=null?p.rangee:null});if(r.error)throw new Error(r.error.message)},
+    async getMessage(id){var r=await SB.from('messages').select('*').eq('id',id).maybeSingle();return r.data||null},
     async ranges(){return chk(await SB.from('rangements').select('*').order('created_at',{ascending:false}))},
-    async addRange(r){chk(await SB.from('rangements').insert({titre:r.titre,individu:r.individu||'',file:r.file}))},
+    async addRange(r){chk(await SB.from('rangements').insert({titre:r.titre,individu:r.individu||'',file:r.file,message_id:r.message_id||null}))},
     async delRange(id){chk(await SB.from('rangements').delete().eq('id',id))},
     async copyFile(f){
       if(!f.path)return Object.assign({},f);
@@ -919,11 +921,15 @@ var FREG=[];
 /* « Ranger dans un dossier » : seulement dans les salons Police, pour le service concerné (Parquet, Instruction, Siège) et les administrateurs */
 function RANGER_OK(f){return !!ME&&/^#messages/.test(location.hash)&&typeof CUR_CH!=='undefined'&&isDemCh(CUR_CH)&&ROLE_RANGER()}
 var FMSG={};
+/* état de rangement d'un message : jetons '@docs' (Documents rangés), '@d:<dossier>' (dossier), '@retire' (retiré, peut être remis) */
+function rgParse(v){var o={docs:false,dos:[],ret:false};String(v||'').split('\n').forEach(function(t){t=t.trim();if(!t)return;if(t==='@docs')o.docs=true;else if(t==='@retire')o.ret=true;else if(t.indexOf('@d:')===0)o.dos.push(t.slice(3));else o.dos.push(t)});return o}
+function rgBuild(o){var l=[];if(o.docs)l.push('@docs');o.dos.forEach(function(x){l.push('@d:'+x)});if(!l.length&&o.ret)l.push('@retire');return l.join('\n')}
+async function rgUpdate(mid,fn){var m=await API.getMessage(mid);if(!m)return;var o=rgParse(m.rangee);fn(o);var any=o.docs||o.dos.length;if(!any)o.ret=true;await API.updateMessage(mid,{statut:any?'rangee':'signee',rangee:rgBuild(o)})}
 function fileLinks(fs,m){
   if(!fs||!fs.length)return '';
   return '<div class="mf">'+fs.map(function(f){
     var isD=/\.docx\)?$/i.test(f.name);
-    var rg=(RANGER_OK(f)&&m&&m.statut==='signee')?'<button class="fchip edt" type="button" data-fr="__I__">📁 Ranger dans un dossier</button>':'';
+    var rgo=rgParse(m&&m.rangee),rg=(RANGER_OK(f)&&m&&(m.statut==='signee'||m.statut==='rangee'))?'<button class="fchip edt" type="button" data-fr="__I__">'+(m.statut==='signee'?(rgo.ret?'📁 Ranger à nouveau':'📁 Ranger'):(!rgo.docs?'📁 Remettre dans les Documents rangés':'📁 Ajouter à un dossier'))+'</button>':'';
     var sg=(f.signs&&f.signs.length)?'<span class="signok">'+f.signs.map(function(s){return '<span>✓ '+esc(s)+'</span>'}).join('')+'</span>':'';
     if(f.url&&!f.data){FREG.push(f);FMSG[FREG.length-1]=m||null;return '<a class="fchip" href="'+qa(f.url)+'" target="_blank" rel="noopener">📄 '+esc(f.name)+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+rg.replace('__I__',FREG.length-1)+sg}
     FREG.push(f);FMSG[FREG.length-1]=m||null;return '<a class="fchip" href="#" data-fi="'+(FREG.length-1)+'">📎 '+esc(f.name)+(f.size?' <small>'+fsize(f.size)+'</small>':'')+'</a>'+(isD?'<button class="fchip edt" type="button" data-fe="'+(FREG.length-1)+'">✍ Compléter / signer</button>':'')+rg.replace('__I__',FREG.length-1)+sg;
@@ -956,26 +962,29 @@ function bindFiles(root){
   (root||document).querySelectorAll('[data-fr]').forEach(function(b){b.addEventListener('click',async function(){
     var f=FREG[+b.getAttribute('data-fr')];if(!f)return;
     try{
-      var msg=FMSG[+b.getAttribute('data-fr')],mt0=f.meta||{};
-      var wh=await dlgOpen({title:'Ranger ce document',body:f.name+'\n\nOù voulez-vous le ranger ? Un seul endroit à la fois.',ok:'Continuer',options:[['docs','Dans les Documents rangés (sans dossier)'],['dossier','Dans un dossier (pièces du dossier)']]});
+      var msg=FMSG[+b.getAttribute('data-fr')],mt0=f.meta||{},ro=rgParse(msg&&msg.rangee);
+      var opts=[];
+      if(!ro.docs){opts.push(['docs','Documents rangés (obligatoire)']);opts.push(['both','Documents rangés ET un dossier en cours'])}
+      if(ro.docs)opts.push(['dossier','Ajouter à un dossier en cours (facultatif)']);
+      var wh=await dlgOpen({title:'Ranger ce document',body:f.name+'\n\n'+(ro.docs?'Il est déjà dans les Documents rangés.':'Le rangement dans les Documents rangés est obligatoire ; le dossier est facultatif.'),ok:'Continuer',options:opts});
       if(!wh)return;
-      if(wh==='docs'){
-        var cp0=await API.copyFile(f);await API.addRange({titre:mt0.titre||String(f.name).replace(/\.docx$/i,''),individu:mt0.individu||'',file:cp0});
-        if(msg){try{await API.updateMessage(msg.id,{statut:'rangee',rangee:'@docs'})}catch(e2){}}
-        await dlgOpen({title:'Document rangé',body:'« '+f.name+' » est rangé dans les Documents rangés (page Documents), au nom de '+(mt0.individu||'l’individu non précisé')+'.\n\nIl n’est lié à aucun dossier.',ok:'OK',info:true});if(msg)await refreshThread(true);return;
+      var did=null,d=null,l=[];
+      if(wh==='both'||wh==='dossier'){
+        l=(await API.dossiers()).slice().sort(function(x,y){return (x.statut==='Classé')-(y.statut==='Classé')||(x.numero<y.numero?1:-1)});
+        if(!l.length){flash('Aucun dossier où ranger ce document.',true);return}
+        did=await dlgOpen({title:'Ranger dans quel dossier ?',body:f.name,ok:'Ranger',options:l.map(function(d){return [d.id,d.numero+' · '+(indiv(d)||d.titre)+(d.statut==='Classé'?' (classé)':'')]})});
+        if(!did)return;d=l.filter(function(x){return x.id===did})[0];
       }
-      var l=(await API.dossiers()).slice().sort(function(x,y){return (x.statut==='Classé')-(y.statut==='Classé')||(x.numero<y.numero?1:-1)});
-      if(!l.length){flash('Aucun dossier où ranger ce document.',true);return}
-      var id=await dlgOpen({title:'Ranger dans quel dossier ?',body:f.name,ok:'Ranger',options:l.map(function(d){return [d.id,d.numero+' · '+(indiv(d)||d.titre)+(d.statut==='Classé'?' (classé)':'')]})});
-      if(!id)return;
-      var cp=await API.copyFile(f),lb=mt0.titre?('Document signé reçu : '+mt0.titre+(mt0.individu?' ('+mt0.individu+')':'')):('Document reçu par la messagerie : '+f.name);await API.addNote(id,lb,[cp]);await API.log(id,lb+' — rangé');
-      var d=l.filter(function(x){return x.id===id})[0];if(msg){try{await API.updateMessage(msg.id,{statut:'rangee',rangee:(d?d.numero+' · '+(indiv(d)||d.titre):'')})}catch(e2){}}
-      await dlgOpen({title:'Document lié au dossier',body:'« '+f.name+' » a bien été lié au dossier '+(d?d.numero+' · '+(indiv(d)||d.titre):'')+'.\n\nIl apparaît dans les Pièces du dossier ; il n’est pas dans les Documents rangés.',ok:'OK',info:true});if(msg)await refreshThread(true);
+      var done=[],label=d?d.numero+' · '+(indiv(d)||d.titre):'';
+      if(wh==='docs'||wh==='both'){var cp0=await API.copyFile(f);await API.addRange({titre:mt0.titre||String(f.name).replace(/\.docx$/i,''),individu:mt0.individu||'',file:cp0,message_id:msg?msg.id:null});done.push('les Documents rangés')}
+      if(did){var cp=await API.copyFile(f);cp.meta=Object.assign({},mt0,{msgid:msg?msg.id:null,rglabel:label});var lb=mt0.titre?('Document signé reçu : '+mt0.titre+(mt0.individu?' ('+mt0.individu+')':'')):('Document reçu par la messagerie : '+f.name);await API.addNote(did,lb,[cp]);await API.log(did,lb+' — rangé');done.push('le dossier '+label)}
+      if(msg){await rgUpdate(msg.id,function(o){if(wh==='docs'||wh==='both')o.docs=true;if(did&&o.dos.indexOf(label)<0)o.dos.push(label);o.ret=false})}
+      await dlgOpen({title:'Document rangé',body:'« '+f.name+' » est rangé dans '+done.join(' et dans ')+'.\n\nSi vous le retirez d\u2019un endroit, vous pourrez le remettre depuis la messagerie.',ok:'OK',info:true});if(msg)await refreshThread(true);
     }catch(err){flash(err.message,true)}
   })});
   (root||document).querySelectorAll('[data-rdel]').forEach(function(b){b.addEventListener('click',async function(){
     if(!await ask('Retirer ce document des Documents rangés ?\n\nLe message d’origine reste dans la messagerie.'))return;
-    try{await API.delRange(b.getAttribute('data-rdel'));flash('Document retiré.');route(true)}catch(e){flash(e.message,true)}})});
+    try{var rmid=b.getAttribute('data-rmsg');await API.delRange(b.getAttribute('data-rdel'));if(rmid){try{await rgUpdate(rmid,function(o){o.docs=false})}catch(e3){}}flash('Document retiré des Documents rangés. Il peut être remis depuis la messagerie.');route(true)}catch(e){flash(e.message,true)}})});
   (root||document).querySelectorAll('[data-fe]').forEach(function(b){b.addEventListener('click',function(){editFile(FREG[+b.getAttribute('data-fe')],FMSG[+b.getAttribute('data-fe')])})});
   (root||document).querySelectorAll('[data-fi]').forEach(function(a){a.addEventListener('click',async function(e){
     e.preventDefault();var f=FREG[+a.getAttribute('data-fi')];
@@ -1149,7 +1158,8 @@ function stBadge(m){
   var lab=mt.titre?'<div class="dem"><b>'+esc(mt.titre)+'</b>'+(mt.individu?'<span>'+esc(mt.individu)+'</span>':'')+'</div>':'';
   var b;
   if(m.statut==='a_traiter')b='<div class="stb st-a">⏳ À traiter'+(mt.slots>1?' · '+Math.min(mt.signed||0,mt.slots)+'/'+mt.slots+' signatures':'')+'</div>';
-  else if(m.statut==='rangee')b='<div class="stb st-r">✓ Signé · 📁 Rangé'+(j&&m.rangee==='@docs'?' dans les Documents':(j&&m.rangee?' dans le dossier '+esc(m.rangee):''))+'</div>';
+  else if(m.statut==='rangee'){var ro=rgParse(m.rangee);b='<div class="stb st-r">✓ Signé · 📁 Rangé'+(j?' : '+[ro.docs?'Documents rangés':''].concat(ro.dos.map(function(x){return 'dossier '+esc(x)})).filter(Boolean).join(' + ')+(!ro.docs?' <i>(retiré des Documents rangés : on peut le remettre)</i>':''):'')+'</div>'}
+  else if(j&&rgParse(m.rangee).ret)b='<div class="stb st-s">✓ Signé · ↩ Retiré du rangement : on peut le ranger à nouveau</div>';
   else b='<div class="stb st-s">✓ Signé</div>';
   return lab+b;
 }
@@ -1161,7 +1171,7 @@ async function refreshThread(force){
   if(!CUR_CH)return;
   var th=$('#thread');if(!th)return;
   var ms=await API.messages(CUR_CH);
-  var sig=ms.length+':'+(ms.length?ms[ms.length-1].id:'')+':'+ms.map(function(x){return (x.statut||'')+((x.files||[]).map(function(f){return (f.signs||[]).length}).join(''))}).join(',');
+  var sig=ms.length+':'+(ms.length?ms[ms.length-1].id:'')+':'+ms.map(function(x){return (x.statut||'')+(x.rangee||'')+((x.files||[]).map(function(f){return (f.signs||[]).length}).join(''))}).join(',');
   if(!force&&sig===LASTSIG)return;
   var near=th.scrollHeight-th.scrollTop-th.clientHeight<80||force;
   LASTSIG=sig;FREG=[];
@@ -1407,7 +1417,8 @@ function bindDossier(id){
   document.querySelectorAll('[data-pn]').forEach(function(b){b.addEventListener('click',async function(){
     var nm=b.getAttribute('data-pname');
     if(!await ask('Retirer la pièce « '+nm+' » de ce dossier ?\n\nLe fichier sera supprimé définitivement. Le journal du dossier gardera la trace du retrait.'))return;
-    try{await API.removeFile(b.getAttribute('data-pn'),+b.getAttribute('data-pi'));await API.log(id,'Pièce retirée : '+nm);flash('Pièce retirée.');route(true)}catch(e){flash(e.message,true)}
+    try{var ff=null;try{var nn=(await API.notes(id)).filter(function(x){return x.id===b.getAttribute('data-pn')})[0];ff=nn&&nn.files&&nn.files[+b.getAttribute('data-pi')]}catch(e4){}
+      await API.removeFile(b.getAttribute('data-pn'),+b.getAttribute('data-pi'));if(ff&&ff.meta&&ff.meta.msgid){try{await rgUpdate(ff.meta.msgid,function(o){o.dos=o.dos.filter(function(x){return x!==ff.meta.rglabel})})}catch(e5){}}await API.log(id,'Pièce retirée : '+nm);flash('Pièce retirée.');route(true)}catch(e){flash(e.message,true)}
   })});
   var tr=$('#dtr');if(tr)tr.addEventListener('change',async function(){
     var u=tr.value;if(!u)return;
@@ -2039,7 +2050,7 @@ async function openEditor(blob,outName,title,msg){
     var f2=Object.assign({},file,{name:outName});
     await API.updateMessage(msg.id,{files:[f2],statut:sig?'signee':null});
     close();await refreshThread(true);
-    if(sig)await dlgOpen({title:'Document signé',body:'Toutes les signatures sont apposées. Le message passe à « Signé » dans la discussion.'+(ROLE_RANGER()?'\n\nUn bouton « Ranger dans un dossier » est maintenant disponible sous le document.':''),ok:'OK',info:true});
+    if(sig)await dlgOpen({title:'Document signé',body:'Toutes les signatures sont apposées. Le message passe à « Signé » dans la discussion.'+(ROLE_RANGER()?'\n\nUn bouton « Ranger » est maintenant disponible sous le document.':''),ok:'OK',info:true});
     else if(nowSigned)flash('Votre signature est enregistrée. Il reste des signatures à apposer : le message reste « À traiter ».');
     else flash('Document enregistré (pas encore signé).')}));
   var fsel=m.querySelector('#edfold');
@@ -2067,7 +2078,7 @@ function roStrip(){
 async function rangedDocs(){
   if(!ROLE_RANGER())return [];
   var l=[];try{l=await API.ranges()}catch(x){}
-  var out=l.filter(function(r){return r.file}).map(function(r){return {id:r.id,f:r.file,meta:{titre:r.titre||r.file.name,individu:r.individu||''},at:r.created_at,by:r.created_by,ind:(r.individu||'').trim()}});
+  var out=l.filter(function(r){return r.file}).map(function(r){return {id:r.id,msgid:r.message_id,f:r.file,meta:{titre:r.titre||r.file.name,individu:r.individu||''},at:r.created_at,by:r.created_by,ind:(r.individu||'').trim()}});
   out.sort(function(a,b){var x=norm(a.ind||'~'),y=norm(b.ind||'~');return x<y?-1:x>y?1:(a.at<b.at?1:-1)});
   return out;
 }
@@ -2075,7 +2086,7 @@ function rangedRow(x){
   FREG.push(x.f);var i=FREG.length-1;
   return '<div class="docrow rg"><span class="dn"><b>'+esc(x.meta.titre)+'</b><small>Rangé le '+fdate(x.at)+' par '+esc(who(x.by))+'</small>'+
     ((x.f.signs&&x.f.signs.length)?'<small class="visa">'+x.f.signs.map(function(s){return '✓ '+esc(s)}).join('<br>')+'</small>':'')+'</span>'+
-    '<a class="fchip" href="#" data-fi="'+i+'">📎 Ouvrir</a>'+((x.by===ME.id||isAdm())?'<button class="fchip edt" type="button" data-rdel="'+qa(x.id)+'">Retirer</button>':'<span></span>')+'</div>';
+    '<a class="fchip" href="#" data-fi="'+i+'">📎 Ouvrir</a>'+((x.by===ME.id||isAdm())?'<button class="fchip edt" type="button" data-rdel="'+qa(x.id)+'" data-rmsg="'+qa(x.msgid||'')+'">Retirer</button>':'<span></span>')+'</div>';
 }
 async function viewRanges(){
   var l=await rangedDocs();FREG=[];
