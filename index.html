@@ -506,6 +506,8 @@ function ROLE_RANGER(){return !!ME&&(isAdm()||(ME.service!=='Police'&&ME.service
 function isAdm(){return !!ME&&(ME.role==='admin'||ME.role==='super')}
 /* Police : « Agent de police » = annuaire, messagerie (salons Police) et documents ; « OPJ » = en plus, lecture seule des dossiers dont il est chargé */
 function isPolice(){return !!ME&&ME.service==='Police'&&!isAdm()}
+function isAvocat(){return !!ME&&!isAdm()&&(ME.service==='Barreau'||/^(Avocat|Bâtonnier)$/.test(ME.grade||''))}
+function isROD(){return isOPJ()||isAvocat()}
 function isOPJ(){return isPolice()&&ME.grade==='OPJ'}
 function isPoliceAgent(){return isPolice()&&ME.grade!=='OPJ'}
 function isAgentM(m){return !!m&&m.service==='Police'&&m.grade!=='OPJ'&&m.role!=='admin'&&m.role!=='super'}
@@ -526,7 +528,7 @@ var $=function(s,r){return (r||document).querySelector(s)};
 
 /* ===== Droits d'accès aux dossiers et au répertoire (mêmes règles que setup.sql) ===== */
 function asgIds(d){return (d.assignes&&d.assignes.length)?d.assignes:(d.assigne_a?[d.assigne_a]:[])}
-function canSeeD(d){if(!ME)return false;if(isAdm())return true;if(isPoliceAgent())return false;if(isOPJ())return asgIds(d).indexOf(ME.id)>=0;return d.created_by===ME.id||asgIds(d).indexOf(ME.id)>=0}
+function canSeeD(d){if(!ME)return false;if(isAdm())return true;if(isPoliceAgent())return false;if(isOPJ()||isAvocat())return asgIds(d).indexOf(ME.id)>=0;return d.created_by===ME.id||asgIds(d).indexOf(ME.id)>=0}
 var MAGIS=['Procureur du Roi','Substitut du Procureur','Juge en chef','Juge','Juge d’instruction'];
 var ECH_TYPES=['Audience','Fin de peine','Rappel','Autre'];
 /* Délais calculés automatiquement d'après les Codes (Code V, Art. 76 : un délai en jours expire le dernier jour à 23 h 59) */
@@ -1084,7 +1086,7 @@ async function viewHome(){
   var q='<section class="hero"><div class="wrap"><div><div class="eyebrow">BruxellesLife · Ville de Bruxelles</div><h1>Espace interne de la Justice</h1><p class="lead">Bonjour '+esc(ME.nom)+'. Les Codes, les guides, les documents types, la messagerie et les dossiers, au même endroit.</p>'+
   '<form class="searchbox" id="hs" role="search"><input id="hq" type="search" placeholder="Dossier, nom, note, pièce ou « Code III art 14 »" aria-label="Rechercher dans les Codes et les guides" autocomplete="off"><button type="submit">Rechercher</button></form></div>'+
   '<div class="facts"><div><b>'+approved().length+'</b><span>membres</span></div>'+(isPoliceAgent()?'':'<div><b>'+open.length+'</b><span>dossiers en cours</span></div>')+'<div><b>'+totalArts()+'</b><span>articles en vigueur</span></div></div></div></section>';
-  var cards=[['messages','Messagerie','Salons par service et messages privés, avec envoi de documents.'],].concat(isPoliceAgent()?[]:[['dossiers',isOPJ()?'Mes dossiers':'Dossiers',isOPJ()?'Les dossiers dont vous êtes chargé (consultation seule).':'Les affaires en cours, leurs pièces et leurs notes.']]).concat([['annuaire','Annuaire','Les membres de la Justice, avec leurs grades.'],['documents','Documents types','Les modèles d’actes à télécharger ou à envoyer à un collègue.']]).map(function(a){return '<a class="act" href="#'+a[0]+'"><b>'+a[1]+'</b><span>'+a[2]+'</span><em>Ouvrir</em></a>'}).join('');
+  var cards=[['messages','Messagerie','Salons par service et messages privés, avec envoi de documents.'],].concat(isPoliceAgent()?[]:[['dossiers',isROD()?'Mes dossiers':'Dossiers',isROD()?'Les dossiers où vous êtes lié (consultation seule).':'Les affaires en cours, leurs pièces et leurs notes.']]).concat([['annuaire','Annuaire','Les membres de la Justice, avec leurs grades.'],['documents','Documents types','Les modèles d’actes à télécharger ou à envoyer à un collègue.']]).map(function(a){return '<a class="act" href="#'+a[0]+'"><b>'+a[1]+'</b><span>'+a[2]+'</span><em>Ouvrir</em></a>'}).join('');
   var mine=starFirst(ds.filter(function(d){return d.statut!=='Classé'&&isMine(d)}));var rec=mine.slice(0,6).map(function(d){return '<a class="act" href="#dossier-'+qa(d.id)+'"><b>'+(isStar(d)?'⭐ ':'')+esc(d.numero)+' · '+esc(d.titre)+'</b><span>'+esc(d.juridiction||'')+' · mis à jour '+fdate(d.updated_at)+'</span><em>'+esc(d.statut)+'</em></a>'}).join('')||'<p class="sub">Aucun dossier ne vous est confié pour l’instant.</p>';
   var codes=[1,2,3,4,5,6,7,8].map(function(c){var n=0;D.codes[c].titres.forEach(function(t){n+=t.articles.length});return '<a class="codecard" href="#c'+c+'"><span class="roman">'+ROM[c]+'</span><b>'+CINFO[c].n+'</b><span>'+CINFO[c].d+'</span><small>'+n+' articles</small></a>'}).join('');
   var guides=GKEYS.map(function(g){var n=0;D.guides[g].titres.forEach(function(t){n+=t.fiches.length});return '<a class="act" href="#g-'+g+'"><b>'+GINFO[g].n+'</b><span>'+GINFO[g].d+'</span><em>'+n+' fiches</em></a>'}).join('');
@@ -1269,7 +1271,7 @@ async function viewDossiers(){
   var tb=function(k,l,n){return '<button class="tab'+(DQ.tab===k?' on':'')+'" data-tab="'+k+'" type="button">'+l+' ('+n+')</button>'};
   var card=function(d){return '<a class="dcard" href="#dossier-'+qa(d.id)+'"><span class="dnum">'+(isStar(d)?'⭐ ':'')+esc(d.numero)+'</span><b>'+esc(d.titre)+'</b><span>'+(indiv(d)?'👤 '+esc(indiv(d))+' · ':'')+esc(d.juridiction||'')+(asg(d).length?' · En charge : '+esc(who(resp(d))):'')+'</span><span class="stt st-'+qa(d.statut)+'">'+esc(d.statut)+'</span><small>'+(d.statut==='Classé'&&d.classe_at?'Classé le '+fdate(d.classe_at):'Mis à jour '+fdate(d.updated_at))+'</small></a>'};
   return '<div class="wrap page">'+pageHead('Dossiers',arch?'Archives : les dossiers classés, qui restent consultables et exportables.':(DQ.tab==='mine'?'Les dossiers sur lesquels vous êtes chargé.':'Toutes les affaires en cours : parties, juridiction, état, pièces et notes.'))+'<div class="tabs" role="tablist">'+tb('mine','Mes dossiers',nM)+tb('all','Tous en cours',nC)+tb('arch','Classés',nA)+'</div>'+
-  '<div class="bar"><input class="filter" id="dq" type="search" value="'+qa(DQ.q)+'" placeholder="Rechercher un dossier (individu, numéro, titre, parties)" aria-label="Rechercher un dossier"><select id="ds" aria-label="Filtrer par état"><option value="">Tous les états</option>'+(arch?'':opts(ACTIFS,DQ.s))+'</select>'+(isOPJ()?'':'<a class="btn" href="#nouveau-dossier">Nouveau dossier</a>')+'</div>'+
+  '<div class="bar"><input class="filter" id="dq" type="search" value="'+qa(DQ.q)+'" placeholder="Rechercher un dossier (individu, numéro, titre, parties)" aria-label="Rechercher un dossier"><select id="ds" aria-label="Filtrer par état"><option value="">Tous les états</option>'+(arch?'':opts(ACTIFS,DQ.s))+'</select>'+(isROD()?'':'<a class="btn" href="#nouveau-dossier">Nouveau dossier</a>')+'</div>'+
   (ds.length?'<div class="dlist">'+(arch?groupArch(ds,card):ds.map(card).join(''))+'</div>':'<p class="empty">'+(arch?'Aucun dossier classé.':(DQ.tab==='mine'?'Aucun dossier ne vous est confié pour l’instant. Voir l’onglet « Tous en cours ».':'Aucun dossier en cours ne correspond.'))+'</p>')+'</div>';
 }
 function bindDossiers(){
@@ -2070,7 +2072,7 @@ function roStrip(){
   var m=$('#main');if(!m)return;
   m.querySelectorAll('[data-unasg],[data-resp]').forEach(function(b){var id=b.getAttribute('data-unasg')||b.getAttribute('data-resp');if(id!==ME.id&&b.parentNode){var a=document.createElement('a');a.className='fchip';a.href='#messages-dm-'+id;a.textContent='✉ Écrire';a.title='Écrire à cette personne chargée du dossier';b.parentNode.appendChild(a)}});
   m.classList.add('ro');
-  var pg=m.querySelector('.page');if(pg&&!pg.querySelector('.robanner')){var d=document.createElement('p');d.className='robanner';d.textContent='Consultation seule : en tant qu’OPJ, vous voyez les dossiers dont vous êtes chargé sans pouvoir les modifier. Pour une demande, écrivez à la personne chargée (✉) ou utilisez les salons Police de la messagerie.';pg.insertBefore(d,pg.firstChild.nextSibling||null)}
+  var pg=m.querySelector('.page');if(pg&&!pg.querySelector('.robanner')){var d=document.createElement('p');d.className='robanner';d.textContent='Consultation seule : vous voyez les dossiers où vous êtes lié sans pouvoir les modifier. Pour une demande, écrivez à la personne en charge (✉) ou utilisez la messagerie.';pg.insertBefore(d,pg.firstChild.nextSibling||null)}
 }
 
 
@@ -2126,6 +2128,7 @@ async function route(force){
   if(!ME.approved){navHtml('');main.innerHTML=viewPending();$('#po').addEventListener('click',logout);return}
   var h=(location.hash||'').replace(/^#/,'')||'accueil';
   /* accès Police : un agent n’a ni dossiers ni agenda ; un OPJ n’a ni agenda ni création de dossier */
+  if(isAvocat()&&/^nouveau-dossier/.test(h)){h='dossiers';if(location.hash!=='#dossiers')location.hash='dossiers'}
   if(isPolice()){var blk=isPoliceAgent()?/^(dossiers|dossier-|individu-|nouveau-dossier|agenda|admin)/:/^(nouveau-dossier|agenda|admin)/;if(blk.test(h)){h='accueil';if(location.hash!=='#accueil')location.hash='accueil'}}
   if(force!==true)EDITING=false;
   navHtml(h);
@@ -2152,7 +2155,7 @@ async function route(force){
   if(tk!==TOKEN)return;
   main.innerHTML=html;
   bind();if(after)after();
-  main.classList.remove('ro');if(isOPJ()&&/^(dossier-|individu-)/.test(h))roStrip();
+  main.classList.remove('ro');if(isROD()&&/^(dossier-|individu-)/.test(h))roStrip();
   if(target){var el=document.getElementById(target);if(el)el.scrollIntoView({behavior:'auto'})}
   else if(h!=='recherche'&&!/^messages/.test(h)&&force!==true){window.scrollTo(0,0)}
 }
