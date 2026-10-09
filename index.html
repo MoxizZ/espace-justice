@@ -204,6 +204,20 @@ footer .flinks a{color:#fff;margin-right:14px}
 }
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 .calcbox{display:grid;gap:12px;max-width:620px;background:var(--card,#fff);border:1px solid #D9DEE8;border-radius:12px;padding:16px}.calcbox label{display:grid;gap:6px;font-weight:600;font-size:14px}.calcbox select,.calcbox input{font:inherit;padding:10px;border:1px solid #C9D0DE;border-radius:8px;background:#fff}.calcres{margin:0;font-size:16px}.calcres small{display:block;color:#5A6478;margin-top:4px;font-size:12.5px}
+.mh2{font-size:26px;margin:24px 0 12px}
+.mcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;max-width:920px}
+.mcard{background:#fff;border:1px solid #D9DEE8;border-left:5px solid #C9A227;border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:6px;box-shadow:0 1px 3px rgba(11,31,75,.06)}
+.mcard b{font-family:Georgia,'Times New Roman',serif;font-size:21px;line-height:1.2;color:#0B1F4B}
+.mcard .mg{align-self:flex-start;background:#0B1F4B;color:#F1D98B;font-size:12.5px;letter-spacing:.04em;padding:3px 10px;border-radius:999px}
+.mcard small{color:#4A5568;font-size:14px}
+.dr .who{display:flex;flex-direction:column;gap:6px}.dr .pn{display:flex;flex-direction:column}.dr .pn b{font-family:Georgia,'Times New Roman',serif;font-size:19px;color:#0B1F4B;font-style:normal}.dr .pn small{color:#4A5568;font-size:13px}
+.newlaw{margin:34px 0 10px;background:#fff;border:2px solid #C9A227;border-radius:14px;padding:22px 26px;box-shadow:0 2px 10px rgba(11,31,75,.08);max-width:920px}
+.newlaw .nl-badge{display:inline-block;background:#0B1F4B;color:#F1D98B;font-size:12px;letter-spacing:.14em;text-transform:uppercase;padding:4px 12px;border-radius:999px;margin-bottom:10px}
+.newlaw h2{font-size:26px;margin:4px 0 4px;color:#0B1F4B}
+.newlaw .nl-date{color:#4A5568;font-size:14px;margin:0 0 10px}
+.newlaw p{margin:0 0 14px}
+.newlaw.empty{border-style:dashed;border-width:2px;box-shadow:none;margin:40px 0 28px;padding:34px 32px;min-height:220px}.newlaw.empty h2{font-size:30px;margin:6px 0 14px}.newlaw.empty p{margin:0 0 10px;color:#4A5568;max-width:62ch}
+.newlaw .nl-prev{border-top:1px solid #E1E5EE;margin-top:16px;padding-top:12px;font-size:14px}.newlaw .nl-prev ul{margin:6px 0 0;padding-left:18px}
 /* ===== Espace interne ===== */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font:inherit;font-weight:600;font-size:15px;padding:10px 18px;border-radius:8px;border:1px solid var(--navy);background:var(--navy);color:#fff;cursor:pointer;text-decoration:none}
 .btn:hover{filter:brightness(1.15)}.btn:disabled{opacity:.55;cursor:default}
@@ -402,6 +416,14 @@ dl.pen.big{max-width:820px;margin-top:18px}
 .mbtn{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
 
 .side-empty{font-size:13px;color:#5b6677;padding:6px 12px;margin:0}
+
+.dlg-ov{position:fixed;inset:0;z-index:10000;background:rgba(8,16,40,.55);display:flex;align-items:center;justify-content:center;padding:16px;animation:dlgf .12s ease-out}
+.dlg{background:var(--card,#fff);color:var(--ink,#111);width:min(440px,100%);border-radius:14px;padding:22px 24px 18px;box-shadow:0 18px 50px rgba(8,16,40,.35);border-top:4px solid #C9A227;animation:dlgp .14s ease-out}
+.dlg h3{font-family:Georgia,'Times New Roman',serif;font-size:20px;line-height:1.3;margin:0 0 8px;color:var(--navy,#0B1F4B)}
+.dlg-b{font-size:15px;line-height:1.5;color:#4A5568;margin:0 0 10px}
+.dlg-in textarea{width:100%;font:inherit;font-size:15px;padding:10px 12px;border:1px solid #cbd3df;border-radius:8px;resize:vertical;margin:6px 0 4px;background:#fff;color:var(--ink,#111)}
+.dlg-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+@keyframes dlgf{from{opacity:0}to{opacity:1}}@keyframes dlgp{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -742,7 +764,7 @@ if(!LIVE){
       dossiers:[d1,d2],notes:[{id:uid(),dossier_id:d1.id,author:proc.id,body:'Réquisitoire de saisine rédigé. Voir Code III, Art. 30.',files:[],created_at:nowIso()}]};
   }
   function load(){try{ST=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){ST=null}if(!ST||!ST.users){ST=seed();save()}}
-  function save(){try{localStorage.setItem(KEY,JSON.stringify(ST))}catch(e){alert('Espace de stockage plein : supprimez des pièces jointes ou réinitialisez la démonstration.')}}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(ST))}catch(e){(window.flash?flash:alert)('Espace de stockage plein : supprimez des pièces jointes ou réinitialisez la démonstration.')}}
   load();
   API={
     live:false,
@@ -878,7 +900,7 @@ async function openFile(url,name){
     var dl=function(){var l=document.createElement('a');l.href=ou;l.download=name;document.body.appendChild(l);l.click();l.remove()};
     if(/\.(pdf|png|jpe?g|gif|webp)$/i.test(name)){var w=window.open(ou,'_blank');if(!w)dl()}else dl();
     setTimeout(function(){URL.revokeObjectURL(ou)},60000);
-  }catch(e){alert(e.message)}
+  }catch(e){flash(e.message,true)}
 }
 document.addEventListener('click',function(e){
   var a=e.target.closest&&e.target.closest('a[href^="documents/"]');if(!a)return;
@@ -897,7 +919,7 @@ function bindFiles(root){
       var bl=await r.blob();var ou=URL.createObjectURL(bl);
       if(/\.(pdf|png|jpe?g|gif|webp)$/i.test(f.name)){var nw=window.open(ou,'_blank');if(!nw)dl(ou)}else dl(ou);
       setTimeout(function(){URL.revokeObjectURL(ou)},60000);
-    }catch(err){alert('Impossible d’ouvrir le fichier : '+err.message)}
+    }catch(err){flash('Impossible d’ouvrir le fichier : '+err.message,true)}
   })});
 }
 function flash(msg,bad){var d=document.createElement('div');d.className='toast'+(bad?' bad':'');d.textContent=msg;document.body.appendChild(d);setTimeout(function(){d.remove()},3800)}
@@ -929,7 +951,7 @@ function viewLogin(mode){
 function bindLogin(mode){
   var f=$('#lf');if(!f)return;
   var err=function(m){$('#lerr').textContent=m||''};
-  var rs=$('#lreset');if(rs)rs.addEventListener('click',function(e){e.preventDefault();if(confirm('Effacer toutes les données de la démonstration ?'))API.reset()});
+  var rs=$('#lreset');if(rs)rs.addEventListener('click',async function(e){e.preventDefault();if(await ask('Effacer toutes les données de la démonstration ?'))API.reset()});
   var sw=$('#lsw');if(sw)sw.addEventListener('click',function(e){e.preventDefault();$('#main').innerHTML=viewLogin(f.getAttribute('data-mode')==='signup'?'login':'signup');bindLogin(f.getAttribute('data-mode')==='signup'?'login':'signup')});
   f.addEventListener('submit',async function(e){
     e.preventDefault();err('');var btn=f.querySelector('button');btn.disabled=true;
@@ -943,6 +965,40 @@ function bindLogin(mode){
   });
 }
 function viewPending(){return '<div class="loginwrap"><div class="logincard"><div class="mark big">§</div><h1>Compte en attente</h1><p>Votre compte est créé mais n’est pas encore validé. Un administrateur doit l’activer et vous attribuer votre grade.</p><button class="btn" id="po">Se déconnecter</button></div></div>'}
+
+/* ===================== FENÊTRES DE DIALOGUE (remplacent confirm / prompt / alert du navigateur) ===================== */
+function dlgOpen(o){
+  return new Promise(function(res){
+    var prev=document.activeElement;
+    var ov=document.createElement('div');ov.className='dlg-ov';
+    ov.innerHTML='<div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgt"><h3 id="dlgt"></h3><div class="dlg-b"></div><div class="dlg-in"></div><div class="dlg-btns"><button type="button" class="btn ghost" data-x="0"></button><button type="button" class="btn" data-x="1"></button></div></div>';
+    var box=ov.firstChild;
+    box.querySelector('h3').textContent=o.title;
+    var b=box.querySelector('.dlg-b');if(o.body){b.innerHTML=String(o.body).split(/\n/).map(function(s){return esc(s)}).join('<br>')}else b.remove();
+    var inp=null,sl=box.querySelector('.dlg-in');
+    if(o.input){inp=document.createElement('textarea');inp.rows=3;inp.placeholder=o.ph||'';inp.setAttribute('aria-label',o.title);sl.appendChild(inp)}else sl.remove();
+    var bc=box.querySelector('[data-x="0"]'),bo=box.querySelector('[data-x="1"]');
+    bc.textContent=o.cancel||'Annuler';bo.textContent=o.ok||'Confirmer';if(o.danger)bo.className='btn danger';
+    var done=function(v){document.removeEventListener('keydown',kd,true);ov.remove();try{if(prev&&prev.focus)prev.focus()}catch(e){}res(v)};
+    var okv=function(){return inp?inp.value.trim():true},nov=function(){return inp?null:false};
+    var kd=function(e){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(nov())}else if(e.key==='Enter'&&!(inp&&!e.ctrlKey&&!e.metaKey)&&document.activeElement!==bc){e.preventDefault();e.stopPropagation();done(okv())}};
+    document.addEventListener('keydown',kd,true);
+    bc.addEventListener('click',function(){done(nov())});bo.addEventListener('click',function(){done(okv())});
+    ov.addEventListener('mousedown',function(e){if(e.target===ov)done(nov())});
+    document.body.appendChild(ov);
+    (inp||(o.danger?bc:bo)).focus();
+  });
+}
+function ask(msg){
+  var p=String(msg).split('\n\n'),t=p[0],ok='Confirmer',danger=false;
+  if(/^(Supprimer|Effacer)/i.test(t)){ok=/^Effacer/i.test(t)?'Effacer':'Supprimer';danger=true}
+  else if(/^Retirer/i.test(t)){ok='Retirer';danger=true}
+  else if(/^Mettre/i.test(t)){ok='Mettre à la corbeille';danger=true}
+  else if(/^Confier/i.test(t)){ok='Confier'}
+  else if(/existe déjà/.test(t)){ok='Créer quand même'}
+  return dlgOpen({title:t,body:p.slice(1).join('\n\n'),ok:ok,danger:danger});
+}
+function askText(title,body,ok,ph){return dlgOpen({title:title,body:body,ok:ok,input:true,ph:ph})}
 
 /* ===================== ACCUEIL ===================== */
 async function viewHome(){
@@ -1030,7 +1086,7 @@ async function refreshThread(force){
   th.innerHTML=ms.length?ms.map(msgHtml).join(''):'<p class="empty">Aucun message. Écrivez le premier.</p>';
   bindFiles(th);
   th.querySelectorAll('[data-del]').forEach(function(b){b.addEventListener('click',async function(){
-    if(!confirm('Supprimer ce message définitivement ?'))return;
+    if(!await ask('Supprimer ce message définitivement ?'))return;
     try{await API.deleteMessage(b.getAttribute('data-del'));flash('Message supprimé.');await refreshThread(true)}catch(err){flash(err.message,true)}
   })});
   if(near)th.scrollTop=th.scrollHeight;
@@ -1161,7 +1217,7 @@ function bindDossierForm(id){
     e.preventDefault();
     var d={numero:$('#f_num').value.trim(),statut:$('#f_st').value,ind_nom:$('#f_in').value.trim(),ind_prenom:$('#f_ip').value.trim(),titre:$('#f_ti').value.trim(),juridiction:$('#f_ju').value,assignes:FASG.slice(),assigne_a:FASG[0]||null,parties:$('#f_pa').value.trim(),resume:$('#f_re').value.trim()};
     if(id)d.id=id;
-    if(!id){var dm=dupFind().filter(function(x){return x.statut!=='Classé'});if(dm.length&&!confirm('Un dossier en cours existe déjà pour cette personne ('+dm.map(function(x){return x.numero}).join(', ')+').\n\nCréer quand même un nouveau dossier ?'))return}
+    if(!id){var dm=dupFind().filter(function(x){return x.statut!=='Classé'});if(dm.length&&!await ask('Un dossier en cours existe déjà pour cette personne ('+dm.map(function(x){return x.numero}).join(', ')+').\n\nCréer quand même un nouveau dossier ?'))return}
     try{
       var old=id?Object.assign({},await API.dossier(id)):null;
       if(old&&d.statut==='Classé'&&old.statut!=='Classé'){d.classe_at=new Date().toISOString()}
@@ -1236,7 +1292,7 @@ function bindDossier(id){
   var st=$('#dst');if(st)st.addEventListener('change',async function(){
     try{
       var d=await API.dossier(id),prev=d.statut,nv=st.value,motif='';
-      if(nv==='Classé'){var m=prompt('Dossier à classer. Motif du classement (décision rendue, classement sans suite, prescription…) :','');if(m===null){st.value=prev;return}motif=m.trim();d.classe_at=new Date().toISOString();d.motif_classement=motif}
+      if(nv==='Classé'){var m=await askText('Classer ce dossier','Indiquez le motif du classement : décision rendue, classement sans suite, prescription… (facultatif).','Classer le dossier','Motif du classement');if(m===null){st.value=prev;return}motif=m.trim();d.classe_at=new Date().toISOString();d.motif_classement=motif}
       else if(prev==='Classé'){d.classe_at=null;d.motif_classement=null}
       d.statut=nv;delete d.lies;delete d.etoile;await API.saveDossier(d);
       await API.log(id,nv==='Classé'?'Dossier classé'+(motif?' — motif : '+motif:''):(prev==='Classé'?'Dossier rouvert (état : '+nv+')':'État : «\u00a0'+prev+'\u00a0» → «\u00a0'+nv+'\u00a0»'));
@@ -1257,7 +1313,7 @@ function bindDossier(id){
   var bh=$('#dhtml');if(bh)bh.addEventListener('click',function(){xp('html')});
   document.querySelectorAll('[data-pn]').forEach(function(b){b.addEventListener('click',async function(){
     var nm=b.getAttribute('data-pname');
-    if(!confirm('Retirer la pièce « '+nm+' » de ce dossier ?\n\nLe fichier sera supprimé définitivement. Le journal du dossier gardera la trace du retrait.'))return;
+    if(!await ask('Retirer la pièce « '+nm+' » de ce dossier ?\n\nLe fichier sera supprimé définitivement. Le journal du dossier gardera la trace du retrait.'))return;
     try{await API.removeFile(b.getAttribute('data-pn'),+b.getAttribute('data-pi'));await API.log(id,'Pièce retirée : '+nm);flash('Pièce retirée.');route(true)}catch(e){flash(e.message,true)}
   })});
   var tr=$('#dtr');if(tr)tr.addEventListener('change',async function(){
@@ -1265,7 +1321,7 @@ function bindDossier(id){
     try{var d=await API.dossier(id),as=asg(d),swap=as.indexOf(ME.id)>=0;
       var l=swap?as.map(function(i){return i===ME.id?u:i}):[u];
       var hold=!isAdm()&&d.created_by!==ME.id&&l.indexOf(ME.id)<0;
-      if(!confirm('Confier ce dossier à '+whoLong(u)+' ?\n\n'+(swap?'Vous ne serez plus chargé du dossier à sa place.':'Les personnes chargées actuellement ('+(names(d)||'aucune')+') seront remplacées.')+(hold?'\nVous ne verrez plus ce dossier.':''))){tr.value='';return}
+      if(!await ask('Confier ce dossier à '+whoLong(u)+' ?\n\n'+(swap?'Vous ne serez plus chargé du dossier à sa place.':'Les personnes chargées actuellement ('+(names(d)||'aucune')+') seront remplacées.')+(hold?'\nVous ne verrez plus ce dossier.':''))){tr.value='';return}
       await API.upd('dossiers',id,{assignes:l,assigne_a:l[0]||null});
       await API.log(id,'Dossier confié à '+whoLong(u)+(swap?' (à la place de '+who(ME.id)+')':' (anciens chargés : '+(as.map(who).join(', ')||'aucun')+')'));
       if(hold){flash('Dossier confié à '+who(u)+'.');location.hash='dossiers'}else{flash('Dossier confié à '+who(u)+'.');route(true)}
@@ -1282,7 +1338,7 @@ function bindDossier(id){
     var u=b.getAttribute('data-unasg');
     try{var d=await API.dossier(id);
       var hold=!isAdm()&&d.created_by!==ME.id&&u===ME.id;
-      if(!confirm('Retirer '+whoLong(u)+' de ce dossier ?'+(hold?'\n\nC’est vous : vous ne pourrez plus voir ce dossier.':'\n\nCette personne ne verra plus le dossier.')))return;
+      if(!await ask('Retirer '+whoLong(u)+' de ce dossier ?'+(hold?'\n\nC’est vous : vous ne pourrez plus voir ce dossier.':'\n\nCette personne ne verra plus le dossier.')))return;
       var l=asg(d).filter(function(x){return x!==u});
       await API.upd('dossiers',id,{assignes:l,assigne_a:l[0]||null});await API.log(id,'Personne chargée retirée : '+whoLong(u));
       if(hold){flash('Vous n’êtes plus chargé de ce dossier.');location.hash='dossiers'}else{flash('Personne retirée du dossier.');route(true)}
@@ -1298,14 +1354,14 @@ function bindDossier(id){
   });
   document.querySelectorAll('[data-unlink]').forEach(function(bt){bt.addEventListener('click',async function(){
     var o=bt.getAttribute('data-unlink'),nm=bt.getAttribute('data-lname');
-    if(!confirm('Retirer le lien avec le dossier '+nm+' ? Le lien disparaît des deux dossiers.'))return;
+    if(!await ask('Retirer le lien avec le dossier '+nm+' ? Le lien disparaît des deux dossiers.'))return;
     try{var a=await API.dossier(id),b=await API.dossier(o);
       await API.upd('dossiers',id,{lies:(a.lies||[]).filter(function(x){return x!==o})});
       if(b){await API.upd('dossiers',o,{lies:(b.lies||[]).filter(function(x){return x!==id})});await API.log(o,'Lien retiré avec le dossier '+a.numero)}
       await API.log(id,'Lien retiré avec le dossier '+nm);flash('Lien retiré.');route(true)}catch(e){flash(e.message,true)}
   })});
   var ed=$('#ded');if(ed)ed.addEventListener('click',function(){EDITING=true;route(true)});
-  var dl=$('#ddel');if(dl)dl.addEventListener('click',async function(){if(confirm('Mettre ce dossier à la corbeille ?\n\nIl disparaît des listes mais un administrateur peut le restaurer pendant 30 jours.')){try{await API.upd('dossiers',id,{deleted_at:new Date().toISOString(),deleted_by:ME.id});await API.log(id,'Dossier mis à la corbeille');flash('Dossier mis à la corbeille.');location.hash='dossiers'}catch(e){flash(e.message,true)}}});
+  var dl=$('#ddel');if(dl)dl.addEventListener('click',async function(){if(await ask('Mettre ce dossier à la corbeille ?\n\nIl disparaît des listes mais un administrateur peut le restaurer pendant 30 jours.')){try{await API.upd('dossiers',id,{deleted_at:new Date().toISOString(),deleted_by:ME.id});await API.log(id,'Dossier mis à la corbeille');flash('Dossier mis à la corbeille.');location.hash='dossiers'}catch(e){flash(e.message,true)}}});
   NPEND=[];var np=$('#npend');
   var draw=function(){np.innerHTML=NPEND.map(function(p,i){return '<span class="fchip">📎 '+esc(p.name)+' <button type="button" data-rm="'+i+'">×</button></span>'}).join('');np.querySelectorAll('[data-rm]').forEach(function(b){b.addEventListener('click',function(){NPEND.splice(+b.getAttribute('data-rm'),1);draw()})})};
   $('#nfile').addEventListener('change',async function(e){var fs=Array.prototype.slice.call(e.target.files);e.target.value='';for(var i=0;i<fs.length;i++){try{NPEND.push(await API.upload(fs[i]));draw()}catch(err){flash(err.message,true)}}});
@@ -1436,10 +1492,10 @@ function bindAdmin(){
   })});
   document.querySelectorAll('[data-rmm]').forEach(function(b){b.addEventListener('click',async function(){
     var id=b.getAttribute('data-rmm'),m=MAP[id]||{};
-    if(!confirm('Supprimer définitivement le compte de '+(m.nom||'ce membre')+' ?\n\nIl ne pourra plus se connecter. Ses messages, ses notes et le journal des dossiers sont conservés (signés « Ancien membre »), et il est retiré des dossiers où il était chargé.'))return;
+    if(!await ask('Supprimer définitivement le compte de '+(m.nom||'ce membre')+' ?\n\nIl ne pourra plus se connecter. Ses messages, ses notes et le journal des dossiers sont conservés (signés « Ancien membre »), et il est retiré des dossiers où il était chargé.'))return;
     try{await API.deleteMember(id);flash('Compte supprimé.');route(true)}catch(e){flash(e.message,true)}
   })});
-  var r=$('#areset');if(r)r.addEventListener('click',function(e){e.preventDefault();if(confirm('Effacer toutes les données de la démonstration ?'))API.reset()});
+  var r=$('#areset');if(r)r.addEventListener('click',async function(e){e.preventDefault();if(await ask('Effacer toutes les données de la démonstration ?'))API.reset()});
 }
 
 /* ===================== EXTENSIONS : agenda, répertoire, étapes, documents, annonces, registre ===================== */
@@ -1486,7 +1542,7 @@ function bindExtras(id){
     await API.ins('dossier_personnes',{dossier_id:id,nom:nom,role:role});
     await API.log(id,'Personne ajoutée : '+nom+' ('+role+')');route(true)}));
   document.querySelectorAll('[data-lrm]').forEach(function(b){b.addEventListener('click',go(async function(){
-    if(!confirm('Retirer « '+b.getAttribute('data-lname')+' » de ce dossier ?'))return;
+    if(!await ask('Retirer « '+b.getAttribute('data-lname')+' » de ce dossier ?'))return;
     await API.del('dossier_personnes',b.getAttribute('data-lrm'));await API.log(id,'Personne retirée : '+b.getAttribute('data-lname'));route(true)}))});
   var ef=$('#ef');
   var cur=function(){var v=$('#e_type').value;if(v.indexOf('d:')===0){var k=v.slice(2);return {dl:DELAIS.filter(function(x){return x.k===k})[0]}}return {man:v.slice(2)}};
@@ -1502,7 +1558,7 @@ function bindExtras(id){
   document.querySelectorAll('[data-edone]').forEach(function(c){c.addEventListener('change',go(async function(){
     await API.upd('echeances',c.getAttribute('data-edone'),{done:c.checked});await API.log(id,'Échéance '+(c.checked?'terminée':'rouverte'));route(true)}))});
   document.querySelectorAll('[data-erm]').forEach(function(b){b.addEventListener('click',go(async function(){
-    if(!confirm('Supprimer cette échéance ?'))return;await API.del('echeances',b.getAttribute('data-erm'));await API.log(id,'Échéance supprimée : '+b.getAttribute('data-etype'));route(true)}))});
+    if(!await ask('Supprimer cette échéance ?'))return;await API.del('echeances',b.getAttribute('data-erm'));await API.log(id,'Échéance supprimée : '+b.getAttribute('data-etype'));route(true)}))});
   var pt=$('#p_type');if(pt)pt.addEventListener('change',go(async function(){
     var d=await API.dossier(id);d.type_procedure=pt.value;await API.saveDossier(d);await API.log(id,'Type de procédure : '+(pt.value?PROCS[pt.value].n:'aucun'));route(true)}));
   document.querySelectorAll('[data-step]').forEach(function(c){c.addEventListener('change',go(async function(){
@@ -1613,7 +1669,7 @@ function bindAdminExtras(){
     try{await API.upd('dossiers',id,{deleted_at:null,deleted_by:null});await API.log(id,'Dossier restauré depuis la corbeille');flash('Dossier restauré.');route(true)}catch(e){flash(e.message,true)}
   })});
   document.querySelectorAll('[data-purge]').forEach(function(b){b.addEventListener('click',async function(){
-    if(!confirm('Supprimer définitivement le dossier '+b.getAttribute('data-pnum')+' avec ses notes, ses pièces et son journal ?\n\nCette action est irréversible.'))return;
+    if(!await ask('Supprimer définitivement le dossier '+b.getAttribute('data-pnum')+' avec ses notes, ses pièces et son journal ?\n\nCette action est irréversible.'))return;
     try{await purgeDossier(b.getAttribute('data-purge'));flash('Dossier supprimé définitivement.');route(true)}catch(e){flash(e.message,true)}
   })});
   var b=$('#bk');if(b)b.addEventListener('click',async function(){try{var o=await API.backup(),bl=new Blob([JSON.stringify(o,null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='Sauvegarde_Justice_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();flash('Sauvegarde téléchargée.')}catch(e){flash(e.message,true)}});
@@ -1650,10 +1706,10 @@ async function editFile(f){
     else{var u=await API.fileUrl(f);var r=await fetch(u);if(!r.ok)throw new Error('fichier introuvable ('+r.status+')');bl=await r.blob()}
     var nm=String(f.name).replace(/\s*\(\.docx\)$/i,'').replace(/\.docx$/i,'').replace(/_complete$/,'');
     openEditor(bl,nm+(/^(signé|complété)/i.test(nm)?'':'')+'_complete.docx',f.name);
-  }catch(err){alert('Impossible d’ouvrir le document : '+err.message)}
+  }catch(err){flash('Impossible d’ouvrir le document : '+err.message,true)}
 }
 function openTemplateEditor(d){
-  var bl=docBlob(d.docx);if(!bl){alert('Ce modèle est introuvable sur le site.');return}
+  var bl=docBlob(d.docx);if(!bl){flash('Ce modèle est introuvable sur le site.',true);return}
   openEditor(bl,(d.ref+'_'+d.title).replace(/[^\wÀ-ÿ\-]+/g,'_')+'.docx',d.ref+' · '+d.title);
 }
 async function openEditorList(blob,outName,title){
@@ -1705,7 +1761,7 @@ async function openEditorList(blob,outName,title){
     var z2=await JSZip.loadAsync(blob);z2.file('word/document.xml',out);
     return z2.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
   };
-  var run=function(fn){return async function(){var bs=m.querySelectorAll('button');bs.forEach(function(b){b.disabled=true});try{await fn()}catch(err){alert('Erreur : '+err.message);bs.forEach(function(b){b.disabled=false})}}};
+  var run=function(fn){return async function(){var bs=m.querySelectorAll('button');bs.forEach(function(b){b.disabled=true});try{await fn()}catch(err){flash('Erreur : '+err.message,true);bs.forEach(function(b){b.disabled=false})}}};
   m.querySelector('[data-eddl]').addEventListener('click',run(async function(){
     var b=await build(),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=outName;document.body.appendChild(a);a.click();a.remove();close()}));
   var at=m.querySelector('[data-edat]');if(at)at.addEventListener('click',run(async function(){
@@ -1815,7 +1871,7 @@ async function openEditor(blob,outName,title){
     var z2=await JSZip.loadAsync(blob);z2.file('word/document.xml',out);
     return z2.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
   };
-  var run=function(fn){return async function(){var bs=m.querySelectorAll('button');bs.forEach(function(b){b.disabled=true});try{await fn()}catch(err){alert('Erreur : '+err.message);bs.forEach(function(b){b.disabled=false})}}};
+  var run=function(fn){return async function(){var bs=m.querySelectorAll('button');bs.forEach(function(b){b.disabled=true});try{await fn()}catch(err){flash('Erreur : '+err.message,true);bs.forEach(function(b){b.disabled=false})}}};
   m.querySelector('[data-eddl]').addEventListener('click',run(async function(){
     var b=await build(),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=outName;document.body.appendChild(a);a.click();a.remove();close()}));
   var at=m.querySelector('[data-edat]');if(at)at.addEventListener('click',run(async function(){
