@@ -797,6 +797,7 @@ if(!LIVE){
     async messages(ch){if(!canChannel(ch))return [];return ST.messages.filter(function(m){return m.channel===ch}).sort(function(a,b){return a.created_at<b.created_at?-1:1}).slice(-200)},
     async recent(){return ST.messages.filter(function(m){return canChannel(m.channel)}).slice(-300)},
     async send(ch,body,files){if(!canChannel(ch))throw new Error('Vous n’avez pas accès à ce salon.');ST.messages.push({id:uid(),channel:ch,sender:ME.id,body:body,files:files||[],created_at:nowIso()});save()},
+    async copyFile(f){return Object.assign({},f)},
     async upload(file){return new Promise(function(res,rej){if(file.size>1200000)return rej(new Error('Fichier trop gros pour la démonstration (1,2 Mo maximum).'));var r=new FileReader();r.onload=function(){res({name:file.name,size:file.size,data:r.result})};r.onerror=rej;r.readAsDataURL(file)})},
     async fileUrl(f){return f.data||f.url},
     async dossiers(){return ST.dossiers.filter(function(d){return canSeeD(d)&&!d.deleted_at}).sort(function(a,b){return a.updated_at<b.updated_at?1:-1})},
@@ -843,6 +844,12 @@ if(!LIVE){
     async messages(ch){if(!canChannel(ch))return [];return chk(await SB.from('messages').select('*').eq('channel',ch).order('created_at',{ascending:true}).limit(200))},
     async recent(){return chk(await SB.from('messages').select('id,channel,sender,created_at').order('created_at',{ascending:false}).limit(300))},
     async send(ch,body,files){chk(await SB.from('messages').insert({channel:ch,sender:ME.id,body:body,files:files||[]}))},
+    async copyFile(f){
+      if(!f.path)return Object.assign({},f);
+      var safe=String(f.name).replace(/[^\w.\-]+/g,'_'),np=ME.id+'/'+Date.now()+'_'+safe;
+      var r=await SB.storage.from('pieces').copy(f.path,np);
+      if(r.error){var dl=await SB.storage.from('pieces').download(f.path);if(dl.error)throw new Error(dl.error.message);var up=await SB.storage.from('pieces').upload(np,dl.data);if(up.error)throw new Error(up.error.message)}
+      var c=Object.assign({},f);c.path=np;return c},
     async upload(file){if(file.size>20000000)throw new Error('Fichier trop gros (20 Mo maximum).');var safe=file.name.replace(/[^\w.\-]+/g,'_');var path=ME.id+'/'+Date.now()+'_'+safe;var r=await SB.storage.from('pieces').upload(path,file);if(r.error)throw new Error(r.error.message);return {name:file.name,size:file.size,path:path}},
     async fileUrl(f){if(f.url)return f.url;var r=await SB.storage.from('pieces').createSignedUrl(f.path,3600);if(r.error)throw new Error(r.error.message);return r.data.signedUrl},
     async dossiers(){return chk(await SB.from('dossiers').select('*').is('deleted_at',null).order('updated_at',{ascending:false}))},
@@ -936,7 +943,7 @@ function bindFiles(root){
       if(!l.length){flash('Aucun dossier où ranger ce document.',true);return}
       var id=await dlgOpen({title:'Ranger dans quel dossier ?',body:f.name,ok:'Ranger',options:l.map(function(d){return [d.id,d.numero+' · '+(indiv(d)||d.titre)+(d.statut==='Classé'?' (classé)':'')]})});
       if(!id)return;
-      await API.addNote(id,'Document reçu par la messagerie : '+f.name,[f]);await API.log(id,'Document reçu par la messagerie et rangé : '+f.name);
+      var cp=await API.copyFile(f);await API.addNote(id,'Document reçu par la messagerie : '+f.name,[cp]);await API.log(id,'Document reçu par la messagerie et rangé : '+f.name);
       var d=l.filter(function(x){return x.id===id})[0];flash('Document rangé dans le dossier '+(d?d.numero:'')+'.');
     }catch(err){flash(err.message,true)}
   })});
