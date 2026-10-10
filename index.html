@@ -256,6 +256,9 @@ footer .flinks a{color:#fff;margin-right:14px}
 .rjfast{margin-top:16px;background:#FBF6E4;border:1px solid #E7D79A;border-radius:14px;padding:16px 20px;display:grid;gap:4px}.rjfast b{color:#0B1F4B}.rjfast span{color:#4b5470;font-size:15px}
 .rjcta{margin:30px 0 8px;background:#0B1F4B;border-radius:18px;padding:26px 30px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}.rjcta b{font-family:var(--serif);font-size:24px;color:#fff}
 @media(max-width:860px){.rjsteps{grid-template-columns:1fr 1fr}.rjstep:after{display:none}.rjvoies{grid-template-columns:1fr}.rjhero{padding:30px 22px}.rjhero h1{font-size:32px}}@media(max-width:520px){.rjsteps{grid-template-columns:1fr}}
+.barlink{display:grid;gap:4px;margin-top:22px;background:#fff;border:1px solid #dde2ee;border-left:5px solid #B8912F;border-radius:12px;padding:16px 20px;text-decoration:none;color:#0B1F4B}.barlink b{font-family:var(--serif);font-size:19px}.barlink span{color:#5b6479;font-size:14.5px}.barlink em{font-style:normal;font-weight:700;color:#8B1A1A;font-size:13px;letter-spacing:.04em}.barlink:hover{border-color:#0B1F4B}
+.btools{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 8px}.btools input{flex:1 1 260px;min-width:0;font:inherit;padding:11px 14px;border:1px solid #cbd3df;border-radius:10px}.btools select{font:inherit;padding:11px;border:1px solid #cbd3df;border-radius:10px;background:#fff}
+.btwrap{overflow-x:auto;background:#fff;border:1px solid #dde2ee;border-radius:12px}.bt{width:100%;border-collapse:collapse;font-size:14.5px}.bt th{text-align:left;background:#0B1F4B;color:#fff;padding:10px 14px;font-weight:600;position:sticky;top:0}.bt td{padding:10px 14px;border-top:1px solid #e6eaf3;vertical-align:top}.bt tr:hover td{background:#F4F6FB}.bt .am{white-space:nowrap;font-weight:600}.bt td:last-child{white-space:nowrap}
 /* ===== Espace interne ===== */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font:inherit;font-weight:600;font-size:15px;padding:10px 18px;border-radius:8px;border:1px solid var(--navy);background:var(--navy);color:#fff;cursor:pointer;text-decoration:none}
 .btn:hover{filter:brightness(1.15)}.btn:disabled{opacity:.55;cursor:default}
@@ -488,6 +491,13 @@ dl.pen.big{max-width:820px;margin-top:18px}
 .jbody{padding:4px 18px 16px;border-top:1px solid var(--line)}.jbody dl{display:grid;grid-template-columns:170px 1fr;gap:8px 16px;margin:12px 0}.jbody dt{font-weight:700;color:var(--navy)}.jbody dd{margin:0}.jmot{white-space:pre-wrap}
 .jact{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
 @media(max-width:760px){.jcard summary{grid-template-columns:1fr}.jdec{justify-self:start}.jbody dl{grid-template-columns:1fr}}
+
+.logincard .lh{font-size:22px;margin:4px 0 8px;padding-top:14px;border-top:1px solid var(--line)}
+.logincard .lhint{margin:0 0 12px}
+.btn.block{display:block;width:100%;text-align:center;padding:12px 16px;font-size:16px}
+.lalt{margin:22px 0 14px;padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--bg,rgba(11,31,75,.04))}
+.lalt p{margin:0 0 12px;font-size:14px;color:var(--muted);line-height:1.5}
+.lalt .btn.ghost.block{border-color:var(--gold)}
 </style>
 </head><body>
 <a class="skip" href="#main">Aller au contenu</a>
@@ -1099,11 +1109,11 @@ function viewLogin(mode){
     '<p class="small"><a href="#" id="lreset">Réinitialiser la démonstration</a></p>';
   }else{
     var reg=mode==='signup';
-    h+='<form id="lf" class="form" data-mode="'+(reg?'signup':'login')+'">'+(reg?'<div class="two"><label>Prénom<input id="lpre" required autocomplete="given-name"></label><label>Nom<input id="lnom" required autocomplete="family-name"></label></div>':'')+
+    h+='<h2 class="lh">'+(reg?'Demande de compte':'Connexion')+'</h2>'+(reg?'<p class="small lhint">Remplissez ce formulaire : un administrateur validera votre demande et vous attribuera votre grade.</p>':'')+'<form id="lf" class="form" data-mode="'+(reg?'signup':'login')+'">'+(reg?'<div class="two"><label>Prénom<input id="lpre" required autocomplete="given-name"></label><label>Nom<input id="lnom" required autocomplete="family-name"></label></div>':'')+
     '<label>Identifiant<input id="le" type="text" required autocomplete="username" autocapitalize="none" spellcheck="false"'+(reg?' minlength="3" maxlength="30" placeholder="ex. jean.dupont (lettres, chiffres, point, tiret)"':'')+'></label><label>Mot de passe<input id="lp" type="password" required minlength="8" autocomplete="'+(reg?'new-password':'current-password')+'"></label>'+
-    '<button class="btn" type="submit">'+(reg?'Demander un compte':'Se connecter')+'</button></form>'+
-    '<p class="small">'+(reg?'<a href="#" id="lsw">J’ai déjà un compte</a>':'<a href="#" id="lsw">Demander un compte</a>')+'</p>'+
-    (reg?'<p class="small">Choisissez un identifiant de votre invention (pas d’adresse e-mail) et notez-le avec votre mot de passe : il n’y a pas de récupération automatique, un administrateur peut vous donner un nouveau mot de passe. Votre compte sera actif après validation par un administrateur.</p>':'<p class="small">Anciens comptes : vous pouvez aussi saisir votre adresse e-mail comme identifiant.</p>');
+    '<button class="btn block" type="submit">'+(reg?'Envoyer ma demande':'Se connecter')+'</button></form>'+
+    (reg?'<div class="lalt"><p>Vous avez déjà un compte ?</p><button class="btn ghost block" type="button" id="lsw">← Retour à la connexion</button></div><p class="small">Choisissez un identifiant de votre invention (pas d’adresse e-mail) et notez-le avec votre mot de passe : il n’y a pas de récupération automatique, un administrateur peut vous donner un nouveau mot de passe.</p>'
+    :'<div class="lalt"><p><b>Pas encore de compte ?</b><br>Faites une demande : un administrateur la validera et vous attribuera votre grade. Tant qu’elle n’est pas validée, la connexion reste refusée : revenez plus tard.</p><button class="btn ghost block" type="button" id="lsw">Demander un compte</button></div><p class="small">Anciens comptes : vous pouvez aussi saisir votre adresse e-mail comme identifiant.</p>');
   }
   h+='<div class="err" id="lerr" role="alert"></div></div></div>';
   return h;
